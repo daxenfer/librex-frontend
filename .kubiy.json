@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "linkedAt": "2026-05-26T05:34:41Z",
+  "tenantId": "tenant-dbc36322-3582-4849-95ce-46c34e532d8c",
+  "serviceId": "svc-2fb9eac6-81ec-47cb-9c21-a393aacdee45",
+  "appId": "appId-f253298f-b94a-4250-a068-bacdfd65c484",
+  "siteUrl": "",
+  "deployType": "dev",
+  "auth": {
+    "type": "appToken",
+    "tokenId": "tok_4c2b910974ea48e69fc7adb298b6f3b7",
+    "scopes": "deploy"
+  },
+  "apikey": "JPfSsnu2UPc01hNhHGtty8dX5MaIRvvAnuDpFaPhuCA"
+}
