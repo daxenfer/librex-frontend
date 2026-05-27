@@ -12,7 +12,7 @@ export function RemissionsPage() {
   const [remissions, setRemissions] = useState<RemissionDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'folioFormatted', desc: true }])
   const [globalFilter, setGlobalFilter] = useState('')
 
   const load = async () => {

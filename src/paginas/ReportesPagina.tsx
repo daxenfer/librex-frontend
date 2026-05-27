@@ -20,11 +20,10 @@ export function ReportsPage() {
   }, [])
 
   return (
-    <div style={{ padding: '1.5rem 2rem' }}>
-      <h4 style={{ color: '#1a1a2e', marginBottom: '1.25rem', fontWeight: 700 }}>Reportes</h4>
+    <div style={{ padding: '1.5rem 2rem', maxWidth: 1100 }}>
+      <h4 style={{ color: '#1a1a2e', marginBottom: '1.5rem', fontWeight: 700, fontSize: '1.25rem' }}>Reportes</h4>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+      <div style={tabBar}>
         <TabButton label="Saldos por cliente" active={activeTab === 'saldos'} onClick={() => setActiveTab('saldos')} />
         <TabButton label="Cantidades por producto" active={activeTab === 'cantidades'} onClick={() => setActiveTab('cantidades')} />
       </div>
@@ -37,20 +36,17 @@ export function ReportsPage() {
 
 function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: '0.5rem 1.25rem',
-        borderRadius: '20px',
-        border: active ? 'none' : '1px solid #ccc',
-        backgroundColor: active ? '#1a1a2e' : '#fff',
-        color: active ? '#fff' : '#555',
-        fontWeight: active ? 600 : 400,
-        fontSize: '0.9rem',
-        cursor: 'pointer',
-        transition: 'all 0.15s',
-      }}
-    >
+    <button onClick={onClick} style={{
+      padding: '0.6rem 1.5rem',
+      border: 'none',
+      background: 'none',
+      borderBottom: active ? '2px solid #1a1a2e' : '2px solid transparent',
+      color: active ? '#1a1a2e' : '#888',
+      fontWeight: active ? 700 : 400,
+      fontSize: '0.95rem',
+      cursor: 'pointer',
+      transition: 'all 0.15s',
+    }}>
       {label}
     </button>
   )
@@ -60,15 +56,24 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
 
 function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
   const [selectedPublisherId, setSelectedPublisherId] = useState<string>('')
-  const [report, setReport] = useState<PublisherReport | null>(null)
+  const [reports, setReports] = useState<PublisherReport[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  const generate = async () => {
+  const load = async (pid: string) => {
     setLoading(true); setError(null)
     try {
-      const pid = selectedPublisherId ? Number(selectedPublisherId) : undefined
-      setReport(await reportService.getByPublisher(pid))
+      if (pid) {
+        const r = await reportService.getByPublisher(Number(pid))
+        setReports([r])
+        setExpanded(new Set([String(r.publisherId ?? 'all')]))
+      } else {
+        const results = await Promise.all(publishers.map(p => reportService.getByPublisher(p.id)))
+        const filtered = results.filter(r => r.customers.length > 0)
+        setReports(filtered)
+        setExpanded(new Set(filtered.map(r => String(r.publisherId ?? 'all'))))
+      }
     } catch {
       setError('No se pudo generar el reporte.')
     } finally {
@@ -76,71 +81,98 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
     }
   }
 
+  useEffect(() => {
+    if (publishers.length > 0) load(selectedPublisherId)
+  }, [publishers])
+
+  const toggle = (key: string) =>
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+
+  const handleFilter = (pid: string) => {
+    setSelectedPublisherId(pid)
+    if (publishers.length > 0) load(pid)
+  }
+
   return (
     <>
-      <div style={card}>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={labelStyle}>Editorial</label>
-            <select style={{ ...inputStyle, minWidth: 220 }} value={selectedPublisherId} onChange={e => setSelectedPublisherId(e.target.value)}>
-              <option value="">Todas las editoriales</option>
-              {publishers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          <button style={btnPrimary} onClick={generate} disabled={loading}>
-            {loading ? 'Generando...' : 'Generar reporte'}
-          </button>
-        </div>
+      <div style={filterBar}>
+        <label style={labelStyle}>Editorial</label>
+        <select style={selectStyle} value={selectedPublisherId} onChange={e => handleFilter(e.target.value)}>
+          <option value="">Todas las editoriales</option>
+          {publishers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        {loading && <span style={{ fontSize: '0.85rem', color: '#888' }}>Cargando...</span>}
       </div>
 
       {error && <p style={{ color: '#c0392b', marginTop: '1rem' }}>{error}</p>}
 
-      {report && (
-        <div style={{ ...card, marginTop: 16 }}>
-          <h6 style={{ color: '#1a1a2e', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.95rem' }}>
-            {report.publisherName}
-          </h6>
-          {report.customers.length === 0 ? (
-            <p style={{ color: '#888', padding: '1rem 0' }}>No hay movimientos para esta editorial.</p>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#1a1a2e', color: '#fff' }}>
-                    <th style={th}>Cliente</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Ventas</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Devoluciones</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Pagos</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Saldo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.customers.map(row => <ReportRow key={row.customerId} row={row} />)}
-                </tbody>
-                <tfoot>
-                  <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 700 }}>
-                    <td style={td}>TOTALES</td>
-                    <td style={{ ...td, textAlign: 'right' }}>{fmt(report.totals.totalSales)}</td>
-                    <td style={{ ...td, textAlign: 'right' }}>{fmt(report.totals.totalReturns)}</td>
-                    <td style={{ ...td, textAlign: 'right' }}>{fmt(report.totals.totalPayments)}</td>
-                    <SaldoCell value={report.totals.balance} />
-                  </tr>
-                </tfoot>
-              </table>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+        {reports.map(report => {
+          const key = String(report.publisherId ?? 'all')
+          const open = expanded.has(key)
+          const balance = report.totals?.balance ?? 0
+          return (
+            <div key={key} style={accordionWrapper}>
+              <button style={accordionHeader} onClick={() => toggle(key)}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#999', transition: 'transform 0.2s', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                  <span style={{ fontWeight: 700, color: '#1a1a2e', fontSize: '0.95rem' }}>{report.publisherName}</span>
+                  <span style={{ fontSize: '0.8rem', color: '#888' }}>{report.customers.length} cliente{report.customers.length !== 1 ? 's' : ''}</span>
+                </span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: balance > 0 ? '#c0392b' : balance < 0 ? '#27ae60' : '#888' }}>
+                  {fmt(balance)}
+                </span>
+              </button>
+
+              {open && (
+                <div style={{ padding: '0 0 0.5rem' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f8f8f8', borderBottom: '2px solid #e0e0e0' }}>
+                          <th style={th}>Cliente</th>
+                          <th style={{ ...th, textAlign: 'right' }}>Ventas</th>
+                          <th style={{ ...th, textAlign: 'right' }}>Devoluciones</th>
+                          <th style={{ ...th, textAlign: 'right' }}>Pagos</th>
+                          <th style={{ ...th, textAlign: 'right' }}>Saldo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.customers.map(row => <SaldosRow key={row.customerId} row={row} />)}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ borderTop: '2px solid #e0e0e0', backgroundColor: '#fafafa', fontWeight: 700 }}>
+                          <td style={td}>TOTALES</td>
+                          <td style={{ ...td, textAlign: 'right' }}>{fmt(report.totals.totalSales)}</td>
+                          <td style={{ ...td, textAlign: 'right' }}>{fmt(report.totals.totalReturns)}</td>
+                          <td style={{ ...td, textAlign: 'right' }}>{fmt(report.totals.totalPayments)}</td>
+                          <SaldoCell value={report.totals.balance} />
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: '#aaa', margin: '0.5rem 1rem 0' }}>
+                    {selectedPublisherId
+                      ? '† Los pagos están prorrateados según la participación de esta editorial en cada remisión.'
+                      : '† Los pagos corresponden al total del cliente en todas las editoriales.'}
+                  </p>
+                </div>
+              )}
             </div>
-          )}
-          <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.75rem' }}>
-            † Los pagos corresponden al total del cliente y no se atribuyen por editorial.
-          </p>
-        </div>
-      )}
+          )
+        })}
+      </div>
     </>
   )
 }
 
-function ReportRow({ row }: { row: CustomerReportRow }) {
+function SaldosRow({ row }: { row: CustomerReportRow }) {
   return (
-    <tr style={{ borderBottom: '1px solid #eee' }}>
+    <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
       <td style={td}>{row.customerName}</td>
       <td style={{ ...td, textAlign: 'right' }}>{fmt(row.totalSales)}</td>
       <td style={{ ...td, textAlign: 'right' }}>{fmt(row.totalReturns)}</td>
@@ -161,15 +193,24 @@ function SaldoCell({ value }: { value: number }) {
 
 function CantidadesReport({ publishers }: { publishers: PublisherDto[] }) {
   const [selectedPublisherId, setSelectedPublisherId] = useState<string>('')
-  const [report, setReport] = useState<SalesByProductReport | null>(null)
+  const [reports, setReports] = useState<SalesByProductReport[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  const generate = async () => {
+  const load = async (pid: string) => {
     setLoading(true); setError(null)
     try {
-      const pid = selectedPublisherId ? Number(selectedPublisherId) : undefined
-      setReport(await reportService.getSalesByProduct(pid))
+      if (pid) {
+        const r = await reportService.getSalesByProduct(Number(pid))
+        setReports([r])
+        setExpanded(new Set([String(r.publisherId ?? 'all')]))
+      } else {
+        const results = await Promise.all(publishers.map(p => reportService.getSalesByProduct(p.id)))
+        const filtered = results.filter(r => r.rows.length > 0)
+        setReports(filtered)
+        setExpanded(new Set(filtered.map(r => String(r.publisherId ?? 'all'))))
+      }
     } catch {
       setError('No se pudo generar el reporte.')
     } finally {
@@ -177,80 +218,106 @@ function CantidadesReport({ publishers }: { publishers: PublisherDto[] }) {
     }
   }
 
+  useEffect(() => {
+    if (publishers.length > 0) load(selectedPublisherId)
+  }, [publishers])
+
+  const toggle = (key: string) =>
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+
+  const handleFilter = (pid: string) => {
+    setSelectedPublisherId(pid)
+    if (publishers.length > 0) load(pid)
+  }
+
   return (
     <>
-      <div style={card}>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={labelStyle}>Editorial</label>
-            <select style={{ ...inputStyle, minWidth: 220 }} value={selectedPublisherId} onChange={e => setSelectedPublisherId(e.target.value)}>
-              <option value="">Todas las editoriales</option>
-              {publishers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          <button style={btnPrimary} onClick={generate} disabled={loading}>
-            {loading ? 'Generando...' : 'Generar reporte'}
-          </button>
-        </div>
+      <div style={filterBar}>
+        <label style={labelStyle}>Editorial</label>
+        <select style={selectStyle} value={selectedPublisherId} onChange={e => handleFilter(e.target.value)}>
+          <option value="">Todas las editoriales</option>
+          {publishers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        {loading && <span style={{ fontSize: '0.85rem', color: '#888' }}>Cargando...</span>}
       </div>
 
       {error && <p style={{ color: '#c0392b', marginTop: '1rem' }}>{error}</p>}
 
-      {report && (
-        <div style={{ ...card, marginTop: 16 }}>
-          <h6 style={{ color: '#1a1a2e', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.95rem' }}>
-            {report.publisherName}
-          </h6>
-          {report.rows.length === 0 ? (
-            <p style={{ color: '#888', padding: '1rem 0' }}>No hay ventas netas para esta editorial.</p>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#1a1a2e', color: '#fff' }}>
-                    <th style={{ ...th, minWidth: 160 }}>Cliente</th>
-                    {report.products.map(p => (
-                      <th key={p.productId} style={{ ...th, textAlign: 'center', minWidth: 90 }} title={p.productName}>
-                        {p.productName.length > 14 ? p.productName.slice(0, 13) + '…' : p.productName}
-                      </th>
-                    ))}
-                    <th style={{ ...th, textAlign: 'center', minWidth: 70 }}>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.rows.map(row => (
-                    <tr key={row.customerId} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={td}>{row.customerName}</td>
-                      {row.quantities.map((qty, i) => (
-                        <td key={i} style={{ ...td, textAlign: 'center', color: qty === 0 ? '#ccc' : undefined }}>
-                          {qty === 0 ? '—' : qty}
-                        </td>
-                      ))}
-                      <td style={{ ...td, textAlign: 'center', fontWeight: 700 }}>{row.totalQuantity}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 700 }}>
-                    <td style={td}>TOTALES</td>
-                    {report.productTotals.map((t, i) => (
-                      <td key={i} style={{ ...td, textAlign: 'center' }}>{t}</td>
-                    ))}
-                    <td style={{ ...td, textAlign: 'center' }}>{report.grandTotal}</td>
-                  </tr>
-                </tfoot>
-              </table>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+        {reports.map(report => {
+          const key = String(report.publisherId ?? 'all')
+          const open = expanded.has(key)
+          return (
+            <div key={key} style={accordionWrapper}>
+              <button style={accordionHeader} onClick={() => toggle(key)}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#999', transition: 'transform 0.2s', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                  <span style={{ fontWeight: 700, color: '#1a1a2e', fontSize: '0.95rem' }}>{report.publisherName}</span>
+                  <span style={{ fontSize: '0.8rem', color: '#888' }}>{report.products.length} producto{report.products.length !== 1 ? 's' : ''}</span>
+                </span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1a1a2e' }}>
+                  {report.grandTotal} uds.
+                </span>
+              </button>
+
+              {open && (
+                <div style={{ padding: '0 0 0.5rem' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f8f8f8', borderBottom: '2px solid #e0e0e0' }}>
+                          <th style={{ ...th, minWidth: 160 }}>Cliente</th>
+                          {report.products.map(p => (
+                            <th key={p.productId} style={{ ...th, textAlign: 'center', minWidth: 90 }} title={p.productName}>
+                              {p.productName.length > 14 ? p.productName.slice(0, 13) + '…' : p.productName}
+                            </th>
+                          ))}
+                          <th style={{ ...th, textAlign: 'center', minWidth: 70 }}>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.rows.map(row => (
+                          <tr key={row.customerId} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                            <td style={td}>{row.customerName}</td>
+                            {row.quantities.map((qty, i) => (
+                              <td key={i} style={{ ...td, textAlign: 'center', color: qty === 0 ? '#ccc' : undefined }}>
+                                {qty === 0 ? '—' : qty}
+                              </td>
+                            ))}
+                            <td style={{ ...td, textAlign: 'center', fontWeight: 700 }}>{row.totalQuantity}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ borderTop: '2px solid #e0e0e0', backgroundColor: '#fafafa', fontWeight: 700 }}>
+                          <td style={td}>TOTALES</td>
+                          {report.productTotals.map((t, i) => (
+                            <td key={i} style={{ ...td, textAlign: 'center' }}>{t}</td>
+                          ))}
+                          <td style={{ ...td, textAlign: 'center' }}>{report.grandTotal}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          )
+        })}
+      </div>
     </>
   )
 }
 
-const card: React.CSSProperties = { backgroundColor: '#fff', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }
-const labelStyle: React.CSSProperties = { fontSize: '0.8rem', fontWeight: 600, color: '#555' }
-const inputStyle: React.CSSProperties = { padding: '0.45rem 0.6rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.9rem' }
-const th: React.CSSProperties = { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 700 }
+const tabBar: React.CSSProperties = { display: 'flex', borderBottom: '1px solid #e0e0e0', marginBottom: '1.5rem' }
+const filterBar: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }
+const labelStyle: React.CSSProperties = { fontSize: '0.85rem', fontWeight: 600, color: '#555' }
+const selectStyle: React.CSSProperties = { padding: '0.45rem 0.6rem', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem', minWidth: 220, backgroundColor: '#fff' }
+const accordionWrapper: React.CSSProperties = { backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e8e8e8', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }
+const accordionHeader: React.CSSProperties = { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1.25rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }
+const th: React.CSSProperties = { padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.03em' }
 const td: React.CSSProperties = { padding: '0.65rem 1rem', fontSize: '0.9rem' }
-const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }
