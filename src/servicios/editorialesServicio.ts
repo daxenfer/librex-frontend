@@ -12,24 +12,24 @@ api.interceptors.request.use(config => {
 export interface PublisherDto {
   id: number
   name: string
-  contact?: string
-  phone?: string
-  email?: string
+  contact: string
+  phone: string
+  email: string
   isActive: boolean
 }
 
 export interface CreatePublisherDto {
   name: string
-  contact?: string
-  phone?: string
-  email?: string
+  contact: string
+  phone: string
+  email: string
 }
 
 export interface UpdatePublisherDto {
   name: string
-  contact?: string
-  phone?: string
-  email?: string
+  contact: string
+  phone: string
+  email: string
   isActive: boolean
 }
 

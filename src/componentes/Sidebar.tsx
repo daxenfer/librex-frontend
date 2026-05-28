@@ -18,8 +18,8 @@ const navGroups: NavGroup[] = [
   {
     label: 'Catálogos',
     items: [
-      { path: '/products',   label: 'Productos',   icon: '📦' },
       { path: '/publishers', label: 'Editoriales', icon: '🏢' },
+      { path: '/products',   label: 'Productos',   icon: '📦' },
       { path: '/customers',  label: 'Clientes',    icon: '👥' },
     ],
   },

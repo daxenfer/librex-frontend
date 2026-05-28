@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect } from 'react'
 import { Modal, Button, Form } from 'react-bootstrap'
 import type { PublisherDto, CreatePublisherDto, UpdatePublisherDto } from '../servicios/editorialesServicio'
 
@@ -20,9 +20,9 @@ export function PublisherForm({ show, publisher, onSave, onClose }: Props) {
   useEffect(() => {
     if (publisher) {
       setName(publisher.name)
-      setContact(publisher.contact ?? '')
-      setPhone(publisher.phone ?? '')
-      setEmail(publisher.email ?? '')
+      setContact(publisher.contact)
+      setPhone(publisher.phone)
+      setEmail(publisher.email)
       setIsActive(publisher.isActive)
     } else {
       setName('')
@@ -33,16 +33,11 @@ export function PublisherForm({ show, publisher, onSave, onClose }: Props) {
     }
   }, [publisher, show])
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     setSaving(true)
     try {
-      const dto = {
-        name,
-        contact: contact || undefined,
-        phone: phone || undefined,
-        email: email || undefined,
-      }
+      const dto = { name, contact, phone, email }
       await onSave(publisher ? { ...dto, isActive } : dto)
     } finally {
       setSaving(false)
@@ -69,31 +64,34 @@ export function PublisherForm({ show, publisher, onSave, onClose }: Props) {
             />
           </Form.Group>
           <Form.Group className="mb-3">
-            <Form.Label>Contacto</Form.Label>
+            <Form.Label>Contacto *</Form.Label>
             <Form.Control
               type="text"
               value={contact}
               onChange={e => setContact(e.target.value)}
+              required
               maxLength={200}
               placeholder="Nombre del contacto"
             />
           </Form.Group>
           <Form.Group className="mb-3">
-            <Form.Label>Teléfono</Form.Label>
+            <Form.Label>Teléfono *</Form.Label>
             <Form.Control
               type="text"
               value={phone}
               onChange={e => setPhone(e.target.value)}
+              required
               maxLength={20}
               placeholder="Teléfono"
             />
           </Form.Group>
           <Form.Group className="mb-3">
-            <Form.Label>Email</Form.Label>
+            <Form.Label>Email *</Form.Label>
             <Form.Control
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
+              required
               maxLength={150}
               placeholder="correo@editorial.com"
             />

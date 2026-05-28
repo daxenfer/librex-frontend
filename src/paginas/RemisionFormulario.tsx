@@ -1,33 +1,47 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { pdf } from '@react-pdf/renderer'
 import { remissionService, type CreateRemissionDetailDto, type RemissionDto } from '../servicios/remisionesServicio'
 import { customerService, type CustomerDto } from '../servicios/clientesServicio'
 import { productService, type ProductDto } from '../servicios/productosServicio'
+import { settingsService } from '../servicios/settingsServicio'
 import { RemisionPdf } from '../componentes/RemisionPdf'
 
 interface DetailRow {
   productId: string
+  teacher: string
   publisherName: string
-  city: string
   quantity: string
   unitPrice: string
 }
 
-const emptyRow = (): DetailRow => ({ productId: '', publisherName: '', city: '', quantity: '', unitPrice: '' })
+const today = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const toUtcNoon = (dateStr: string) => dateStr + 'T12:00:00.000Z'
+const emptyRow = (): DetailRow => ({ productId: '', teacher: '', publisherName: '', quantity: '', unitPrice: '' })
 
 export function RemissionForm() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const isEdit = !!id
 
+  // Header fields
   const [customerId, setCustomerId] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [salesPerson, setSalesPerson] = useState('')
+  const [deliveryDate, setDeliveryDate] = useState(today())
+  const [paymentDueDate, setPaymentDueDate] = useState(today())
+  const [returnPercentage, setReturnPercentage] = useState('0')
+  const [returnDueDate, setReturnDueDate] = useState(today())
+
+  // Detail table
+  const [details, setDetails] = useState<DetailRow[]>([emptyRow()])
+  const [discountPercentage, setDiscountPercentage] = useState('0')
+
+  // Footer
   const [notes, setNotes] = useState('')
   const [recipientName, setRecipientName] = useState('')
-  const [discount, setDiscount] = useState('0')
-  const [details, setDetails] = useState<DetailRow[]>([emptyRow()])
   const [isActive, setIsActive] = useState(true)
 
   const [customers, setCustomers] = useState<CustomerDto[]>([])
@@ -47,17 +61,20 @@ export function RemissionForm() {
     if (!isEdit) return
     remissionService.getById(Number(id)).then(r => {
       setCustomerId(String(r.customerId))
-      setDate(r.date.slice(0, 10))
       setSalesPerson(r.salesPerson ?? '')
+      setDeliveryDate(r.deliveryDate.slice(0, 10))
+      setPaymentDueDate(r.paymentDueDate.slice(0, 10))
+      setReturnPercentage(String(r.returnPercentage))
+      setReturnDueDate(r.returnDueDate.slice(0, 10))
+      setDiscountPercentage(String(r.discountPercentage))
       setNotes(r.notes ?? '')
       setRecipientName(r.recipientName ?? '')
-      setDiscount(String(r.discount))
       setIsActive(r.isActive)
       setSavedRemission(r)
       setDetails(r.details.map(d => ({
         productId: String(d.productId),
+        teacher: d.teacher ?? '',
         publisherName: d.publisherName ?? '',
-        city: d.city ?? '',
         quantity: String(d.quantity),
         unitPrice: String(d.unitPrice),
       })))
@@ -83,14 +100,13 @@ export function RemissionForm() {
   const removeRow = (i: number) => setDetails(prev => prev.filter((_, idx) => idx !== i))
 
   const subtotal = details.reduce((sum, d) => {
-    const qty = parseFloat(d.quantity) || 0
-    const price = parseFloat(d.unitPrice) || 0
-    return sum + qty * price
+    return sum + (parseFloat(d.quantity) || 0) * (parseFloat(d.unitPrice) || 0)
   }, 0)
-  const discountNum = parseFloat(discount) || 0
-  const total = subtotal - discountNum
+  const discountPct = parseFloat(discountPercentage) || 0
+  const discountAmount = subtotal * discountPct / 100
+  const total = subtotal - discountAmount
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     if (!customerId) { setError('Selecciona un cliente.'); return }
     if (details.some(d => !d.productId || !d.quantity || !d.unitPrice)) {
@@ -100,17 +116,20 @@ export function RemissionForm() {
     try {
       const dtos: CreateRemissionDetailDto[] = details.map(d => ({
         productId: Number(d.productId),
-        city: d.city || undefined,
+        teacher: d.teacher || undefined,
         quantity: parseFloat(d.quantity),
         unitPrice: parseFloat(d.unitPrice),
       }))
       const base = {
         customerId: Number(customerId),
-        date: new Date(date).toISOString(),
         salesPerson: salesPerson || undefined,
         notes: notes || undefined,
         recipientName: recipientName || undefined,
-        discount: discountNum,
+        deliveryDate: toUtcNoon(deliveryDate),
+        paymentDueDate: toUtcNoon(paymentDueDate),
+        returnPercentage: parseFloat(returnPercentage) || 0,
+        returnDueDate: toUtcNoon(returnDueDate),
+        discountPercentage: discountPct,
         details: dtos,
       }
       let result: RemissionDto
@@ -130,7 +149,8 @@ export function RemissionForm() {
 
   const downloadPdf = async () => {
     if (!savedRemission) return
-    const blob = await pdf(<RemisionPdf remission={savedRemission} />).toBlob()
+    const settings = await settingsService.get()
+    const blob = await pdf(<RemisionPdf remission={savedRemission} settings={settings} />).toBlob()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -142,7 +162,7 @@ export function RemissionForm() {
   if (loading) return <div style={{ padding: '2rem' }}>Cargando...</div>
 
   return (
-    <div style={{ padding: '1.5rem 2rem', maxWidth: 960, margin: '0 auto' }}>
+    <div style={{ padding: '1.5rem 2rem', maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <h4 style={{ color: '#1a1a2e', fontWeight: 700, margin: 0 }}>
           {isEdit ? `Remisión ${savedRemission?.folioFormatted ?? ''}` : 'Nueva remisión'}
@@ -155,27 +175,47 @@ export function RemissionForm() {
       {error && <p style={{ color: '#c0392b', marginBottom: '1rem' }}>{error}</p>}
 
       <form onSubmit={handleSubmit}>
+        {/* ── Datos generales ── */}
         <div style={card}>
           <h6 style={sectionTitle}>Datos generales</h6>
           <div style={row}>
-            <div style={field}>
-              <label style={label}>Cliente *</label>
+            <div style={{ flex: 2, minWidth: 200, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={labelStyle}>Cliente *</label>
               <select style={input} value={customerId} onChange={e => setCustomerId(e.target.value)} required>
                 <option value="">Seleccionar cliente...</option>
                 {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
-            <div style={{ ...field, maxWidth: 160 }}>
-              <label style={label}>Fecha *</label>
-              <input style={input} type="date" value={date} onChange={e => setDate(e.target.value)} required />
-            </div>
             <div style={field}>
-              <label style={label}>Vendedor</label>
+              <label style={labelStyle}>Vendedor</label>
               <input style={input} type="text" value={salesPerson} onChange={e => setSalesPerson(e.target.value)} placeholder="Nombre del vendedor" maxLength={200} />
             </div>
           </div>
+
+          <div style={{ ...row, marginTop: 12 }}>
+            <div style={field}>
+              <label style={labelStyle}>Fecha de entrega *</label>
+              <input style={input} type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} required />
+            </div>
+            <div style={field}>
+              <label style={labelStyle}>Fecha límite de pago *</label>
+              <input style={input} type="date" value={paymentDueDate} onChange={e => setPaymentDueDate(e.target.value)} required />
+            </div>
+            <div style={{ ...field, maxWidth: 140 }}>
+              <label style={labelStyle}>% Devolución *</label>
+              <div style={{ position: 'relative' }}>
+                <input style={{ ...input, paddingRight: '1.8rem' }} type="number" value={returnPercentage} onChange={e => setReturnPercentage(e.target.value)} min="0" max="100" step="0.01" required />
+                <span style={pctSuffix}>%</span>
+              </div>
+            </div>
+            <div style={field}>
+              <label style={labelStyle}>Fecha límite de devolución *</label>
+              <input style={input} type="date" value={returnDueDate} onChange={e => setReturnDueDate(e.target.value)} required />
+            </div>
+          </div>
+
           {isEdit && (
-            <div style={{ marginTop: 8 }}>
+            <div style={{ marginTop: 12 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', cursor: 'pointer' }}>
                 <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
                 Activo
@@ -184,15 +224,16 @@ export function RemissionForm() {
           )}
         </div>
 
+        {/* ── Productos ── */}
         <div style={{ ...card, marginTop: 12 }}>
           <h6 style={sectionTitle}>Productos</h6>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f0f0f0' }}>
+                  <th style={th}>Maestro</th>
                   <th style={th}>Editorial</th>
                   <th style={th}>Título *</th>
-                  <th style={th}>Ciudad</th>
                   <th style={{ ...th, width: 80 }}>Cantidad *</th>
                   <th style={{ ...th, width: 100 }}>P. Unitario *</th>
                   <th style={{ ...th, width: 100 }}>Importe</th>
@@ -205,6 +246,9 @@ export function RemissionForm() {
                   return (
                     <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
                       <td style={td}>
+                        <input style={inputSmall} type="text" value={d.teacher} onChange={e => updateRow(i, 'teacher', e.target.value)} maxLength={200} placeholder="Maestro" />
+                      </td>
+                      <td style={td}>
                         <input style={{ ...inputSmall, backgroundColor: '#f9f9f9' }} value={d.publisherName} readOnly placeholder="(auto)" />
                       </td>
                       <td style={td}>
@@ -212,9 +256,6 @@ export function RemissionForm() {
                           <option value="">Seleccionar...</option>
                           {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
-                      </td>
-                      <td style={td}>
-                        <input style={inputSmall} type="text" value={d.city} onChange={e => updateRow(i, 'city', e.target.value)} maxLength={100} />
                       </td>
                       <td style={td}>
                         <input style={inputSmall} type="number" value={d.quantity} onChange={e => updateRow(i, 'quantity', e.target.value)} min="0.01" step="0.01" required />
@@ -242,7 +283,11 @@ export function RemissionForm() {
             <div style={totalRow}><span style={totalLabel}>Subtotal:</span><span style={totalValue}>${subtotal.toFixed(2)}</span></div>
             <div style={totalRow}>
               <span style={totalLabel}>Descuento:</span>
-              <input style={{ ...inputSmall, width: 100, textAlign: 'right' }} type="number" value={discount} onChange={e => setDiscount(e.target.value)} min="0" step="0.01" />
+              <div style={{ position: 'relative', width: 100 }}>
+                <input style={{ ...inputSmall, textAlign: 'right', paddingRight: '1.5rem' }} type="number" value={discountPercentage} onChange={e => setDiscountPercentage(e.target.value)} min="0" max="100" step="0.01" />
+                <span style={{ ...pctSuffix, right: 6 }}>%</span>
+              </div>
+              <span style={{ ...totalValue, color: '#c0392b' }}>-${discountAmount.toFixed(2)}</span>
             </div>
             <div style={{ ...totalRow, fontWeight: 700, fontSize: '1rem', color: '#1a1a2e' }}>
               <span style={totalLabel}>Total:</span><span style={totalValue}>${total.toFixed(2)}</span>
@@ -250,15 +295,16 @@ export function RemissionForm() {
           </div>
         </div>
 
+        {/* ── Notas y recepción ── */}
         <div style={{ ...card, marginTop: 12 }}>
           <h6 style={sectionTitle}>Notas y recepción</h6>
           <div style={row}>
             <div style={{ flex: 2 }}>
-              <label style={label}>Observaciones</label>
+              <label style={labelStyle}>Observaciones</label>
               <textarea style={{ ...input, height: 70, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observaciones generales..." />
             </div>
             <div style={field}>
-              <label style={label}>Nombre de quien recibe</label>
+              <label style={labelStyle}>Nombre de quien recibe</label>
               <input style={input} type="text" value={recipientName} onChange={e => setRecipientName(e.target.value)} placeholder="Nombre y firma de recibido" maxLength={200} />
             </div>
           </div>
@@ -278,10 +324,11 @@ export function RemissionForm() {
 const card: React.CSSProperties = { backgroundColor: '#fff', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }
 const sectionTitle: React.CSSProperties = { color: '#1a1a2e', fontWeight: 700, marginBottom: '0.75rem', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }
 const row: React.CSSProperties = { display: 'flex', gap: '1rem', flexWrap: 'wrap' }
-const field: React.CSSProperties = { flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 4 }
-const label: React.CSSProperties = { fontSize: '0.8rem', fontWeight: 600, color: '#555' }
+const field: React.CSSProperties = { flex: 1, minWidth: 160, display: 'flex', flexDirection: 'column', gap: 4 }
+const labelStyle: React.CSSProperties = { fontSize: '0.8rem', fontWeight: 600, color: '#555' }
 const input: React.CSSProperties = { padding: '0.45rem 0.6rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.9rem', width: '100%', boxSizing: 'border-box' }
 const inputSmall: React.CSSProperties = { padding: '0.3rem 0.4rem', border: '1px solid #ccc', borderRadius: '3px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }
+const pctSuffix: React.CSSProperties = { position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: '0.85rem', color: '#666', pointerEvents: 'none' }
 const th: React.CSSProperties = { padding: '0.6rem 0.75rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: 700, borderBottom: '2px solid #ddd' }
 const td: React.CSSProperties = { padding: '0.4rem 0.5rem', verticalAlign: 'middle' }
 const totalRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '1rem' }

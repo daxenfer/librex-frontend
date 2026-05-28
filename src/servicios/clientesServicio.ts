@@ -12,15 +12,27 @@ api.interceptors.request.use(config => {
 export interface CustomerDto {
   id: number
   name: string
+  address: string
+  postalCode: string
+  phone: string
+  city: string
   isActive: boolean
 }
 
 export interface CreateCustomerDto {
   name: string
+  address: string
+  postalCode: string
+  phone: string
+  city: string
 }
 
 export interface UpdateCustomerDto {
   name: string
+  address: string
+  postalCode: string
+  phone: string
+  city: string
   isActive: boolean
 }
 

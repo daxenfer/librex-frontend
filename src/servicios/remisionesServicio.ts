@@ -14,7 +14,7 @@ export interface RemissionDetailDto {
   productId: number
   productName: string
   publisherName?: string
-  city?: string
+  teacher?: string
   quantity: number
   unitPrice: number
   amount: number
@@ -26,11 +26,21 @@ export interface RemissionDto {
   folioFormatted: string
   customerId: number
   customerName: string
+  customerAddress: string
+  customerPostalCode: string
+  customerPhone: string
+  customerCity: string
   date: string
+  createdAt: string
   salesPerson?: string
   notes?: string
   recipientName?: string
-  discount: number
+  deliveryDate: string
+  paymentDueDate: string
+  returnPercentage: number
+  returnDueDate: string
+  discountPercentage: number
+  discountAmount: number
   subtotal: number
   total: number
   isActive: boolean
@@ -39,18 +49,21 @@ export interface RemissionDto {
 
 export interface CreateRemissionDetailDto {
   productId: number
-  city?: string
+  teacher?: string
   quantity: number
   unitPrice: number
 }
 
 export interface CreateRemissionDto {
   customerId: number
-  date: string
   salesPerson?: string
   notes?: string
   recipientName?: string
-  discount: number
+  deliveryDate: string
+  paymentDueDate: string
+  returnPercentage: number
+  returnDueDate: string
+  discountPercentage: number
   details: CreateRemissionDetailDto[]
 }
 

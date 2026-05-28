@@ -1,5 +1,5 @@
-import { useState, useEffect, type FormEvent } from 'react'
-import { Modal, Button, Form } from 'react-bootstrap'
+import { useState, useEffect } from 'react'
+import { Modal, Button, Form, Row, Col } from 'react-bootstrap'
 import type { CustomerDto, CreateCustomerDto, UpdateCustomerDto } from '../servicios/clientesServicio'
 
 interface Props {
@@ -11,24 +11,37 @@ interface Props {
 
 export function CustomerForm({ show, customer, onSave, onClose }: Props) {
   const [name, setName] = useState('')
+  const [address, setAddress] = useState('')
+  const [postalCode, setPostalCode] = useState('')
+  const [phone, setPhone] = useState('')
+  const [city, setCity] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (customer) {
       setName(customer.name)
+      setAddress(customer.address)
+      setPostalCode(customer.postalCode)
+      setPhone(customer.phone)
+      setCity(customer.city)
       setIsActive(customer.isActive)
     } else {
       setName('')
+      setAddress('')
+      setPostalCode('')
+      setPhone('')
+      setCity('')
       setIsActive(true)
     }
   }, [customer, show])
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     setSaving(true)
     try {
-      await onSave(customer ? { name, isActive } : { name })
+      const dto = { name, address, postalCode, phone, city }
+      await onSave(customer ? { ...dto, isActive } : dto)
     } finally {
       setSaving(false)
     }
@@ -53,7 +66,55 @@ export function CustomerForm({ show, customer, onSave, onClose }: Props) {
               placeholder="Nombre del cliente"
             />
           </Form.Group>
-
+          <Form.Group className="mb-3">
+            <Form.Label>Domicilio *</Form.Label>
+            <Form.Control
+              type="text"
+              value={address}
+              onChange={e => setAddress(e.target.value)}
+              required
+              placeholder="Domicilio"
+            />
+          </Form.Group>
+          <Row>
+            <Col xs={4}>
+              <Form.Group className="mb-3">
+                <Form.Label>C.P. *</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={postalCode}
+                  onChange={e => setPostalCode(e.target.value)}
+                  required
+                  maxLength={20}
+                  placeholder="C.P."
+                />
+              </Form.Group>
+            </Col>
+            <Col xs={8}>
+              <Form.Group className="mb-3">
+                <Form.Label>Ciudad *</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={city}
+                  onChange={e => setCity(e.target.value)}
+                  required
+                  maxLength={100}
+                  placeholder="Ciudad"
+                />
+              </Form.Group>
+            </Col>
+          </Row>
+          <Form.Group className="mb-3">
+            <Form.Label>Teléfono *</Form.Label>
+            <Form.Control
+              type="text"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              required
+              maxLength={50}
+              placeholder="Teléfono"
+            />
+          </Form.Group>
           {customer && (
             <Form.Check
               type="checkbox"
