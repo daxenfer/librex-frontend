@@ -1,13 +1,4 @@
-import axios from 'axios'
-import { authService } from './authServicio'
-
-const api = axios.create()
-
-api.interceptors.request.use(config => {
-  const token = authService.getToken()
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
+import api from './apiCliente'
 
 export interface RemissionDetailDto {
   id: number

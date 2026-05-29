@@ -1,13 +1,4 @@
-import axios from 'axios'
-import { authService } from './authServicio'
-
-const api = axios.create()
-
-api.interceptors.request.use(config => {
-  const token = authService.getToken()
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
+import api from './apiCliente'
 
 export const PAYMENT_METHODS = ['Efectivo', 'Transferencia', 'Cheque', 'Otro'] as const
 export type PaymentMethod = typeof PAYMENT_METHODS[number]

@@ -1,4 +1,4 @@
-import axios from 'axios'
+import api from './apiCliente'
 
 export interface LoginResponse {
   token: string
@@ -13,7 +13,7 @@ const USER_KEY = 'librex_user'
 
 export const authService = {
   async login(username: string, password: string): Promise<LoginResponse> {
-    const response = await axios.post<LoginResponse>('/api/auth/login', { username, password })
+    const response = await api.post<LoginResponse>('/api/auth/login', { username, password })
     return response.data
   },
 
