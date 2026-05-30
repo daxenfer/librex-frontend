@@ -6,6 +6,7 @@ import {
   type ColumnDef, type SortingState,
 } from '@tanstack/react-table'
 import { remissionService, type RemissionDto } from '../servicios/remisionesServicio'
+import { exportToExcel } from '../utils/exportarExcel'
 
 export function RemissionsPage() {
   const navigate = useNavigate()
@@ -23,6 +24,20 @@ export function RemissionsPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  const downloadExcel = () => {
+    exportToExcel(
+      remissions.map(r => ({
+        'Folio': r.folioFormatted,
+        'Cliente': r.customerName,
+        'Fecha': new Date(r.date).toLocaleDateString('es-MX'),
+        'Subtotal': r.subtotal,
+        'Descuento': r.discountAmount,
+        'Total': r.total,
+      })),
+      'remisiones'
+    )
+  }
 
   const remove = async (id: number) => {
     if (!confirm('¿Eliminar esta remisión?')) return
@@ -61,12 +76,13 @@ export function RemissionsPage() {
   })
 
   return (
-    <div style={{ padding: '1.5rem 2rem' }}>
+    <div className="page-content" style={{ padding: '1.5rem 2rem' }}>
       <h4 style={{ color: '#1a1a2e', marginBottom: '1.25rem', fontWeight: 700 }}>Remisiones</h4>
       {error && <p style={{ color: '#c0392b', marginBottom: '1rem' }}>{error}</p>}
       <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem' }}>
+        <div className="toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem' }}>
           <input style={searchInput} placeholder="Buscar remisiones..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} />
+          <button style={btnExcel} onClick={downloadExcel} disabled={loading || remissions.length === 0}>Descargar Excel</button>
           <button style={btnPrimary} onClick={() => navigate('/remissions/new')}>+ Nueva remisión</button>
         </div>
         {loading ? <p>Cargando...</p> : (
@@ -96,7 +112,7 @@ export function RemissionsPage() {
                 </tbody>
               </table>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div className="pagination-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span style={{ fontSize: '0.875rem', color: '#555' }}>Filas por página:</span>
                 <select style={{ padding: '0.25rem 0.5rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.875rem' }} value={table.getState().pagination.pageSize} onChange={e => table.setPageSize(Number(e.target.value))}>
@@ -123,3 +139,4 @@ const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundC
 const btnEdit: React.CSSProperties = { padding: '0.3rem 0.75rem', backgroundColor: '#2980b9', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' }
 const btnDelete: React.CSSProperties = { padding: '0.3rem 0.75rem', backgroundColor: '#c0392b', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' }
 const btnPage: React.CSSProperties = { padding: '0.35rem 0.75rem', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }
+const btnExcel: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }

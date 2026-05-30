@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-table'
 import { customerService, type CustomerDto, type CreateCustomerDto, type UpdateCustomerDto } from '../servicios/clientesServicio'
 import { CustomerForm } from '../componentes/ClienteFormulario'
+import { exportToExcel } from '../utils/exportarExcel'
 
 export function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerDto[]>([])
@@ -30,6 +31,20 @@ export function CustomersPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  const downloadExcel = () => {
+    exportToExcel(
+      customers.map(c => ({
+        'Nombre': c.name,
+        'Dirección': c.address ?? '',
+        'C.P.': c.postalCode ?? '',
+        'Teléfono': c.phone ?? '',
+        'Ciudad': c.city ?? '',
+        'Estado': c.isActive ? 'Activo' : 'Inactivo',
+      })),
+      'clientes'
+    )
+  }
 
   const openNew = () => { setSelected(null); setShowModal(true) }
   const openEdit = (c: CustomerDto) => { setSelected(c); setShowModal(true) }
@@ -109,6 +124,7 @@ export function CustomersPage() {
             value={globalFilter}
             onChange={e => setGlobalFilter(e.target.value)}
           />
+          <button style={btnExcel} onClick={downloadExcel} disabled={loading || customers.length === 0}>Descargar Excel</button>
           <button style={btnPrimary} onClick={openNew}>+ Nuevo cliente</button>
         </div>
 
@@ -198,3 +214,4 @@ const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundC
 const btnEdit: React.CSSProperties = { padding: '0.3rem 0.75rem', backgroundColor: '#2980b9', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' }
 const btnDelete: React.CSSProperties = { padding: '0.3rem 0.75rem', backgroundColor: '#c0392b', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' }
 const btnPage: React.CSSProperties = { padding: '0.35rem 0.75rem', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }
+const btnExcel: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }

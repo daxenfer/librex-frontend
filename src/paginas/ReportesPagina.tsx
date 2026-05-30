@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
+import { pdf } from '@react-pdf/renderer'
 import {
   reportService,
   type CustomerReportRow, type PublisherReport,
   type SalesByProductReport,
 } from '../servicios/reportesServicio'
 import { publisherService, type PublisherDto } from '../servicios/editorialesServicio'
+import { SaldosReportePdf } from '../componentes/SaldosReportePdf'
+import { CantidadesReportePdf } from '../componentes/CantidadesReportePdf'
+import { exportToExcel } from '../utils/exportarExcel'
 
 type Tab = 'saldos' | 'cantidades'
 
@@ -20,7 +24,7 @@ export function ReportsPage() {
   }, [])
 
   return (
-    <div style={{ padding: '1.5rem 2rem', maxWidth: 1100 }}>
+    <div className="page-content" style={{ padding: '1.5rem 2rem', maxWidth: 1100 }}>
       <h4 style={{ color: '#1a1a2e', marginBottom: '1.5rem', fontWeight: 700, fontSize: '1.25rem' }}>Reportes</h4>
 
       <div style={tabBar}>
@@ -60,6 +64,7 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   const load = async (pid: string) => {
     setLoading(true); setError(null)
@@ -97,6 +102,46 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
     if (publishers.length > 0) load(pid)
   }
 
+  const downloadExcel = () => {
+    const rows = reports.flatMap(report => [
+      ...report.customers.map(row => ({
+        'Editorial': report.publisherName,
+        'Cliente': row.customerName,
+        'Ventas': row.totalSales,
+        'Devoluciones': row.totalReturns,
+        'Pagos': row.totalPayments,
+        'Saldo': row.balance,
+      })),
+      {
+        'Editorial': report.publisherName,
+        'Cliente': 'TOTALES',
+        'Ventas': report.totals.totalSales,
+        'Devoluciones': report.totals.totalReturns,
+        'Pagos': report.totals.totalPayments,
+        'Saldo': report.totals.balance,
+      },
+    ])
+    exportToExcel(rows, 'saldos-por-cliente')
+  }
+
+  const downloadPdf = async () => {
+    setPdfLoading(true)
+    try {
+      const publisherName = publishers.find(p => String(p.id) === selectedPublisherId)?.name ?? ''
+      const blob = await pdf(
+        <SaldosReportePdf reports={reports} filtroEditorial={publisherName} />
+      ).toBlob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'saldos-por-cliente.pdf'
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
   return (
     <>
       <div style={filterBar}>
@@ -105,6 +150,10 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
           <option value="">Todas las editoriales</option>
           {publishers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
+        <button style={btnExcelReport} onClick={downloadExcel} disabled={loading || reports.length === 0}>Descargar Excel</button>
+        <button style={btnPdf} onClick={downloadPdf} disabled={loading || pdfLoading || reports.length === 0}>
+          {pdfLoading ? 'Generando...' : 'Descargar PDF'}
+        </button>
         {loading && <span style={{ fontSize: '0.85rem', color: '#888' }}>Cargando...</span>}
       </div>
 
@@ -197,6 +246,7 @@ function CantidadesReport({ publishers }: { publishers: PublisherDto[] }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   const load = async (pid: string) => {
     setLoading(true); setError(null)
@@ -234,6 +284,42 @@ function CantidadesReport({ publishers }: { publishers: PublisherDto[] }) {
     if (publishers.length > 0) load(pid)
   }
 
+  const downloadExcel = () => {
+    const rows = reports.flatMap(report => [
+      ...report.rows.map(row => {
+        const obj: Record<string, unknown> = { 'Editorial': report.publisherName, 'Cliente': row.customerName }
+        report.products.forEach((p, i) => { obj[p.productName] = row.quantities[i] ?? 0 })
+        obj['Total'] = row.totalQuantity
+        return obj
+      }),
+      (() => {
+        const obj: Record<string, unknown> = { 'Editorial': report.publisherName, 'Cliente': 'TOTALES' }
+        report.products.forEach((p, i) => { obj[p.productName] = report.productTotals[i] ?? 0 })
+        obj['Total'] = report.grandTotal
+        return obj
+      })(),
+    ])
+    exportToExcel(rows, 'cantidades-por-producto')
+  }
+
+  const downloadPdf = async () => {
+    setPdfLoading(true)
+    try {
+      const publisherName = publishers.find(p => String(p.id) === selectedPublisherId)?.name ?? ''
+      const blob = await pdf(
+        <CantidadesReportePdf reports={reports} filtroEditorial={publisherName} />
+      ).toBlob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'cantidades-por-producto.pdf'
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
   return (
     <>
       <div style={filterBar}>
@@ -242,6 +328,10 @@ function CantidadesReport({ publishers }: { publishers: PublisherDto[] }) {
           <option value="">Todas las editoriales</option>
           {publishers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
+        <button style={btnExcelReport} onClick={downloadExcel} disabled={loading || reports.length === 0}>Descargar Excel</button>
+        <button style={btnPdf} onClick={downloadPdf} disabled={loading || pdfLoading || reports.length === 0}>
+          {pdfLoading ? 'Generando...' : 'Descargar PDF'}
+        </button>
         {loading && <span style={{ fontSize: '0.85rem', color: '#888' }}>Cargando...</span>}
       </div>
 
@@ -317,6 +407,8 @@ const tabBar: React.CSSProperties = { display: 'flex', borderBottom: '1px solid 
 const filterBar: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }
 const labelStyle: React.CSSProperties = { fontSize: '0.85rem', fontWeight: 600, color: '#555' }
 const selectStyle: React.CSSProperties = { padding: '0.45rem 0.6rem', border: '1px solid #ddd', borderRadius: '6px', fontSize: '0.9rem', minWidth: 220, backgroundColor: '#fff' }
+const btnPdf: React.CSSProperties = { padding: '0.45rem 1.1rem', backgroundColor: '#c0392b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', whiteSpace: 'nowrap' }
+const btnExcelReport: React.CSSProperties = { padding: '0.45rem 1.1rem', backgroundColor: '#27ae60', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', whiteSpace: 'nowrap' }
 const accordionWrapper: React.CSSProperties = { backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e8e8e8', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }
 const accordionHeader: React.CSSProperties = { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.9rem 1.25rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }
 const th: React.CSSProperties = { padding: '0.65rem 1rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.03em' }

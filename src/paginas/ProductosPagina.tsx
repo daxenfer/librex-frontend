@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-table'
 import { productService, type ProductDto, type CreateProductDto, type UpdateProductDto } from '../servicios/productosServicio'
 import { ProductForm } from '../componentes/ProductoFormulario'
+import { exportToExcel } from '../utils/exportarExcel'
 
 export function ProductsPage() {
   const [products, setProducts] = useState<ProductDto[]>([])
@@ -30,6 +31,17 @@ export function ProductsPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  const downloadExcel = () => {
+    exportToExcel(
+      products.map(p => ({
+        'Nombre': p.name,
+        'Editorial': p.publisherName ?? '',
+        'Estado': p.isActive ? 'Activo' : 'Inactivo',
+      })),
+      'productos'
+    )
+  }
 
   const openNew = () => { setSelected(null); setShowModal(true) }
   const openEdit = (p: ProductDto) => { setSelected(p); setShowModal(true) }
@@ -115,6 +127,7 @@ export function ProductsPage() {
             value={globalFilter}
             onChange={e => setGlobalFilter(e.target.value)}
           />
+          <button style={btnExcel} onClick={downloadExcel} disabled={loading || products.length === 0}>Descargar Excel</button>
           <button style={btnPrimary} onClick={openNew}>+ Nuevo producto</button>
         </div>
 
@@ -205,3 +218,4 @@ const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundC
 const btnEdit: React.CSSProperties = { padding: '0.3rem 0.75rem', backgroundColor: '#2980b9', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' }
 const btnDelete: React.CSSProperties = { padding: '0.3rem 0.75rem', backgroundColor: '#c0392b', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' }
 const btnPage: React.CSSProperties = { padding: '0.35rem 0.75rem', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }
+const btnExcel: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }
