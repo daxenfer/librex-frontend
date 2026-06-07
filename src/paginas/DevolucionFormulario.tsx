@@ -1,11 +1,9 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { pdf } from '@react-pdf/renderer'
 import { returnNoteService, type CreateReturnNoteDetailDto, type ReturnNoteDto } from '../servicios/devolucionesServicio'
 import { customerService, type CustomerDto } from '../servicios/clientesServicio'
 import { productService, type ProductDto } from '../servicios/productosServicio'
 import { remissionService, type RemissionDto } from '../servicios/remisionesServicio'
-import { DevolucionPdf } from '../componentes/DevolucionPdf'
 
 interface DetailRow {
   productId: string
@@ -146,6 +144,10 @@ export function ReturnNoteForm() {
 
   const downloadPdf = async () => {
     if (!savedNote) return
+    const [{ pdf }, { DevolucionPdf }] = await Promise.all([
+      import('@react-pdf/renderer'),
+      import('../componentes/DevolucionPdf'),
+    ])
     const blob = await pdf(<DevolucionPdf returnNote={savedNote} />).toBlob()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')

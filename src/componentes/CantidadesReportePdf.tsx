@@ -13,7 +13,7 @@ const s = StyleSheet.create({
   table: { borderWidth: 1, borderColor: '#ccc' },
   thead: { flexDirection: 'row', backgroundColor: DARK },
   thCustomer: { paddingVertical: 3, paddingHorizontal: 4, color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 6.5, width: 100 },
-  th: { paddingVertical: 3, paddingHorizontal: 2, color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 6, flex: 1, textAlign: 'center' },
+  th: { paddingVertical: 3, paddingHorizontal: 2, color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 6, flex: 1, textAlign: 'center', maxLines: 2 },
   thTotal: { paddingVertical: 3, paddingHorizontal: 4, color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 6.5, width: 36, textAlign: 'center' },
   tr: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#e0e0e0' },
   trAlt: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#e0e0e0', backgroundColor: '#fafafa' },
@@ -48,7 +48,7 @@ export function CantidadesReportePdf({ reports, filtroEditorial }: Props) {
               <View style={s.thead}>
                 <Text style={s.thCustomer}>Cliente</Text>
                 {report.products.map(p => (
-                  <Text key={p.productId} style={s.th} numberOfLines={2}>
+                  <Text key={p.productId} style={s.th}>
                     {p.productName.length > 18 ? p.productName.slice(0, 17) + '…' : p.productName}
                   </Text>
                 ))}

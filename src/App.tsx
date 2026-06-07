@@ -13,10 +13,12 @@ import { ReturnNoteForm } from './paginas/DevolucionFormulario'
 import { PaymentsPage } from './paginas/PagosPagina'
 import { PaymentForm } from './paginas/PagoFormulario'
 import { ReportsPage } from './paginas/ReportesPagina'
+import { PerfHUD } from './componentes/PerfHUD'
 
 function App() {
   return (
     <AuthProvider>
+      <PerfHUD />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />

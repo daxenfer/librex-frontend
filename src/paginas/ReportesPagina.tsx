@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react'
-import { pdf } from '@react-pdf/renderer'
 import {
   reportService,
   type CustomerReportRow, type PublisherReport,
   type SalesByProductReport,
 } from '../servicios/reportesServicio'
 import { publisherService, type PublisherDto } from '../servicios/editorialesServicio'
-import { SaldosReportePdf } from '../componentes/SaldosReportePdf'
-import { CantidadesReportePdf } from '../componentes/CantidadesReportePdf'
 import { exportToExcel } from '../utils/exportarExcel'
 
 type Tab = 'saldos' | 'cantidades'
@@ -128,6 +125,10 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
     setPdfLoading(true)
     try {
       const publisherName = publishers.find(p => String(p.id) === selectedPublisherId)?.name ?? ''
+      const [{ pdf }, { SaldosReportePdf }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('../componentes/SaldosReportePdf'),
+      ])
       const blob = await pdf(
         <SaldosReportePdf reports={reports} filtroEditorial={publisherName} />
       ).toBlob()
@@ -306,6 +307,10 @@ function CantidadesReport({ publishers }: { publishers: PublisherDto[] }) {
     setPdfLoading(true)
     try {
       const publisherName = publishers.find(p => String(p.id) === selectedPublisherId)?.name ?? ''
+      const [{ pdf }, { CantidadesReportePdf }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('../componentes/CantidadesReportePdf'),
+      ])
       const blob = await pdf(
         <CantidadesReportePdf reports={reports} filtroEditorial={publisherName} />
       ).toBlob()

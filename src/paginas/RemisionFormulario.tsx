@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { pdf } from '@react-pdf/renderer'
 import { remissionService, type CreateRemissionDetailDto, type RemissionDto } from '../servicios/remisionesServicio'
 import { customerService, type CustomerDto } from '../servicios/clientesServicio'
 import { productService, type ProductDto } from '../servicios/productosServicio'
 import { settingsService } from '../servicios/settingsServicio'
-import { RemisionPdf } from '../componentes/RemisionPdf'
 
 interface DetailRow {
   productId: string
@@ -150,6 +148,10 @@ export function RemissionForm() {
   const downloadPdf = async () => {
     if (!savedRemission) return
     const settings = await settingsService.get()
+    const [{ pdf }, { RemisionPdf }] = await Promise.all([
+      import('@react-pdf/renderer'),
+      import('../componentes/RemisionPdf'),
+    ])
     const blob = await pdf(<RemisionPdf remission={savedRemission} settings={settings} />).toBlob()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
