@@ -28,10 +28,64 @@ input, textarea, select {
   box-sizing: border-box;
 }
 
+/* ── Datepicker (react-datepicker) ── */
+.react-datepicker-wrapper { width: 100%; }
+
+.react-datepicker {
+  font-family: inherit;
+  border: 1px solid #d7def0;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(26, 26, 46, 0.18);
+  overflow: hidden;
+}
+.react-datepicker__header {
+  background: #1a1a2e;
+  border-bottom: none;
+  padding-top: 10px;
+}
+.react-datepicker__current-month,
+.react-datepicker__day-name { color: #fff; }
+.react-datepicker__current-month { text-transform: capitalize; font-weight: 600; }
+.react-datepicker__navigation { top: 10px; }
+.react-datepicker__navigation-icon::before { border-color: #fff; }
+.react-datepicker__day { border-radius: 6px; }
+.react-datepicker__day:hover { background: #e8eef8; border-radius: 6px; }
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background: #1a4fa0;
+  color: #fff;
+  border-radius: 6px;
+}
+.react-datepicker__day--today { font-weight: 700; color: #1a4fa0; }
+.react-datepicker__day--selected.react-datepicker__day--today { color: #fff; }
+.react-datepicker__today-button {
+  background: #f4f6fb;
+  border-top: 1px solid #e3e8f3;
+  color: #1a4fa0;
+  font-weight: 600;
+  padding: 8px 0;
+}
+
+/* App shell: fixed viewport height so <main> is the scroll area (dvh handles mobile address bar) */
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Datepicker: centered modal on mobile (withPortal) */
+.react-datepicker__portal { background-color: rgba(10, 14, 25, 0.6); }
+.react-datepicker__portal .react-datepicker { box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4); }
+
 /* Responsive table: scroll on small screens */
 @media (max-width: 767px) {
   .page-content {
     padding: 1rem !important;
+  }
+  .settings-page {
+    padding: 1.25rem 1rem !important;
+  }
+  .settings-logo-row {
+    align-items: flex-start !important;
   }
   .toolbar {
     flex-direction: column !important;

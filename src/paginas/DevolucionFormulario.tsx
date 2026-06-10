@@ -4,6 +4,7 @@ import { returnNoteService, type CreateReturnNoteDetailDto, type ReturnNoteDto }
 import { customerService, type CustomerDto } from '../servicios/clientesServicio'
 import { productService, type ProductDto } from '../servicios/productosServicio'
 import { remissionService, type RemissionDto } from '../servicios/remisionesServicio'
+import { DateField } from '../componentes/DateField'
 
 interface DetailRow {
   productId: string
@@ -185,7 +186,7 @@ export function ReturnNoteForm() {
             </div>
             <div style={{ ...field, maxWidth: 160 }}>
               <label style={label}>Fecha *</label>
-              <input style={input} type="date" value={date} onChange={e => setDate(e.target.value)} required />
+              <DateField value={date} onChange={setDate} required />
             </div>
           </div>
 

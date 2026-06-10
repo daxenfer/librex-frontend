@@ -76,7 +76,7 @@ export function SettingsPage() {
   if (loading) return <div style={{ padding: '2rem' }}>Cargando...</div>
 
   return (
-    <div style={{ padding: '1.5rem 2rem', maxWidth: 900, margin: '0 auto' }}>
+    <div className="settings-page" style={{ padding: '1.5rem 2rem', maxWidth: 900, margin: '0 auto' }}>
       <h4 style={{ color: '#1a1a2e', fontWeight: 700, marginBottom: '1.25rem' }}>Configuración de la empresa</h4>
 
       {error && <p style={{ color: '#c0392b', marginBottom: '1rem' }}>{error}</p>}
@@ -86,7 +86,7 @@ export function SettingsPage() {
         {/* ── Logo ── */}
         <div style={card}>
           <h6 style={sectionTitle}>Logo</h6>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+          <div className="settings-logo-row" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
             <div style={logoPreview}>
               {form.logoBase64
                 ? <img src={form.logoBase64} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />

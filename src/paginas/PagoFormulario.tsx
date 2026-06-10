@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { paymentService, PAYMENT_METHODS, type PaymentDto } from '../servicios/pagosServicio'
 import { customerService, type CustomerDto } from '../servicios/clientesServicio'
 import { remissionService, type RemissionDto } from '../servicios/remisionesServicio'
+import { DateField } from '../componentes/DateField'
 
 export function PaymentForm() {
   const navigate = useNavigate()
@@ -110,7 +111,7 @@ export function PaymentForm() {
             </div>
             <div style={{ ...field, maxWidth: 160 }}>
               <label style={label}>Fecha *</label>
-              <input style={input} type="date" value={date} onChange={e => setDate(e.target.value)} required />
+              <DateField value={date} onChange={setDate} required />
             </div>
           </div>
 

@@ -19,7 +19,7 @@ export function LoginPage() {
     setLoading(true)
     try {
       await login(username, password)
-      navigate('/products', { replace: true })
+      navigate('/remissions', { replace: true })
     } catch {
       setError('Credenciales incorrectas. Verificá tu usuario y contraseña.')
     } finally {

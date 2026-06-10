@@ -4,6 +4,7 @@ import { remissionService, type CreateRemissionDetailDto, type RemissionDto } fr
 import { customerService, type CustomerDto } from '../servicios/clientesServicio'
 import { productService, type ProductDto } from '../servicios/productosServicio'
 import { settingsService } from '../servicios/settingsServicio'
+import { DateField } from '../componentes/DateField'
 
 interface DetailRow {
   productId: string
@@ -197,11 +198,11 @@ export function RemissionForm() {
           <div style={{ ...row, marginTop: 12 }}>
             <div style={field}>
               <label style={labelStyle}>Fecha de entrega *</label>
-              <input style={input} type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} required />
+              <DateField value={deliveryDate} onChange={setDeliveryDate} required />
             </div>
             <div style={field}>
               <label style={labelStyle}>Fecha límite de pago *</label>
-              <input style={input} type="date" value={paymentDueDate} onChange={e => setPaymentDueDate(e.target.value)} required />
+              <DateField value={paymentDueDate} onChange={setPaymentDueDate} required />
             </div>
             <div style={{ ...field, maxWidth: 140 }}>
               <label style={labelStyle}>% Devolución *</label>
@@ -212,7 +213,7 @@ export function RemissionForm() {
             </div>
             <div style={field}>
               <label style={labelStyle}>Fecha límite de devolución *</label>
-              <input style={input} type="date" value={returnDueDate} onChange={e => setReturnDueDate(e.target.value)} required />
+              <DateField value={returnDueDate} onChange={setReturnDueDate} required />
             </div>
           </div>
 

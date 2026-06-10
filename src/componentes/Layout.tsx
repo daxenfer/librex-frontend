@@ -8,7 +8,7 @@ export function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+    <div className="app-shell" style={{ display: 'flex', backgroundColor: '#f5f5f5' }}>
       <Sidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -16,7 +16,7 @@ export function Layout() {
         onCloseMobile={() => setMobileOpen(false)}
       />
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Mobile top bar */}
         <div className="mobile-topbar">
           <button
@@ -29,7 +29,7 @@ export function Layout() {
           <div style={{ width: '2rem' }} />
         </div>
 
-        <main style={{ flex: 1, overflow: 'auto' }}>
+        <main style={{ flex: 1, minHeight: 0, overflow: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <Outlet />
         </main>
       </div>
