@@ -11,6 +11,7 @@ export interface CompanySettingsDto {
   postalCode?: string
   city?: string
   state?: string
+  logoBase64?: string
 }
 
 export const settingsService = {

@@ -1,9 +1,10 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 import type { RemissionDto } from '../servicios/remisionesServicio'
 import type { CompanySettingsDto } from '../servicios/settingsServicio'
 
-const BLUE = '#003087'
-const BLUE_LIGHT = '#e8eef8'
+const BLUE = '#1A4FA0'
+const GRID = '#aebfdb'
+const RED = '#C42026'
 
 const s = StyleSheet.create({
   page: { fontFamily: 'Helvetica', fontSize: 8, padding: '14 20 12 20', color: '#111' },
@@ -13,21 +14,24 @@ const s = StyleSheet.create({
 
   // Left: company info
   companyBlock: { flex: 1, paddingRight: 10 },
-  companyName:  { fontSize: 18, fontFamily: 'Helvetica-Bold', color: BLUE, letterSpacing: 0.5 },
-  companyBrand: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: BLUE, marginBottom: 2 },
-  companyLine:  { fontSize: 6.5, color: '#333', marginTop: 1 },
+  companyTopRow:{ flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerLogo:   { width: 56, height: 56, objectFit: 'contain' },
+  companyNameWrap: { flex: 1 },
+  companyName:  { fontSize: 17, fontFamily: 'Helvetica-Bold', color: BLUE, letterSpacing: 0.3 },
+  companyRfc:   { fontSize: 7, color: '#333', marginTop: 1 },
+  companyLine:  { fontSize: 6.5, color: '#333', marginTop: 1.5 },
 
-  // Right: 2 rows × 3 boxes
-  metaGrid:    { flexDirection: 'column', gap: 3 },
-  metaRow:     { flexDirection: 'row', gap: 3 },
-  metaBox:     { borderWidth: 1, borderColor: BLUE, minWidth: 90, padding: '2 5' },
-  metaLabel:   { fontSize: 5.5, color: BLUE, fontFamily: 'Helvetica-Bold', marginBottom: 3 },
+  // Right: 2 rows × 3 boxes, each with a solid blue header strip
+  metaGrid:    { flexDirection: 'column', gap: 4 },
+  metaRow:     { flexDirection: 'row', gap: 4 },
+  metaBox:     { borderWidth: 1, borderColor: BLUE, width: 114 },
+  metaHead:    { backgroundColor: BLUE, paddingVertical: 2, paddingHorizontal: 2, minHeight: 18, justifyContent: 'center' },
+  metaHeadText:{ fontSize: 5.6, color: '#fff', fontFamily: 'Helvetica-Bold', letterSpacing: 0.4, textAlign: 'center' },
+  metaBody:    { paddingVertical: 3, paddingHorizontal: 4, minHeight: 20, justifyContent: 'center' },
   metaValue:   { fontSize: 8 },
 
-  // Folio box (top-right, prominent)
-  folioBox:    { backgroundColor: BLUE, padding: '3 10', alignItems: 'center', justifyContent: 'center', minWidth: 110 },
-  folioTag:    { fontSize: 6.5, color: '#fff', fontFamily: 'Helvetica-Bold', letterSpacing: 1 },
-  folioNum:    { fontSize: 18, color: '#fff', fontFamily: 'Helvetica-Bold', letterSpacing: 1 },
+  // Folio (red number on white, blue header strip)
+  folioValue:  { fontSize: 16, color: RED, fontFamily: 'Helvetica-Bold', letterSpacing: 1, textAlign: 'center' },
 
   // ── Client section ───────────────────────────────────────────────────────────
   clientSection: { marginBottom: 5, borderWidth: 1, borderColor: BLUE, padding: '3 6' },
@@ -40,12 +44,13 @@ const s = StyleSheet.create({
   clientCityVal: { fontSize: 7, borderBottomWidth: 0.75, borderBottomColor: '#aaa', paddingBottom: 1, flex: 1, marginLeft: 3 },
 
   // ── Table ────────────────────────────────────────────────────────────────────
-  table:  { borderWidth: 1.5, borderColor: BLUE, marginBottom: 5 },
+  tableWrap: { position: 'relative', marginBottom: 5 },
+  watermark: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, margin: 'auto', width: '95%', height: '92%', objectFit: 'contain', opacity: 0.06 },
+  table:  { borderWidth: 1.5, borderColor: BLUE },
   thead:  { flexDirection: 'row', backgroundColor: BLUE },
-  th:     { paddingVertical: 3, paddingHorizontal: 3, color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 6.5, borderRightWidth: 0.5, borderRightColor: 'rgba(255,255,255,0.3)' },
-  tr:     { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#c8d4e8' },
-  trAlt:  { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#c8d4e8', backgroundColor: BLUE_LIGHT },
-  td:     { paddingVertical: 2, paddingHorizontal: 3, fontSize: 7, borderRightWidth: 0.5, borderRightColor: '#c8d4e8' },
+  th:     { paddingVertical: 3.5, paddingHorizontal: 3, color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 6.5, borderRightWidth: 0.5, borderRightColor: 'rgba(255,255,255,0.4)' },
+  tr:     { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: GRID, minHeight: 16 },
+  td:     { paddingVertical: 3, paddingHorizontal: 3, fontSize: 7, borderRightWidth: 0.5, borderRightColor: GRID },
 
   // Column widths
   cMa: { width: '12%' },
@@ -90,6 +95,7 @@ interface Props {
 export function RemisionPdf({ remission, settings }: Props) {
   const emptyRows = Math.max(0, MIN_ROWS - remission.details.length)
 
+  const logo = settings.logoBase64 || ''
   const phones = [settings.phone1, settings.phone2].filter(Boolean).join('  |  ')
   const addressLine = [settings.address, settings.postalCode, settings.city, settings.state].filter(Boolean).join(', ')
 
@@ -101,46 +107,51 @@ export function RemisionPdf({ remission, settings }: Props) {
         <View style={s.header}>
           {/* Left: company info */}
           <View style={s.companyBlock}>
-            <Text style={s.companyName}>{settings.brandName || settings.companyName}</Text>
-            {settings.brandName && settings.companyName !== settings.brandName && (
-              <Text style={s.companyBrand}>{settings.companyName}</Text>
-            )}
-            {settings.rfc ? <Text style={s.companyLine}>R.F.C. {settings.rfc}</Text> : null}
-            {phones ? <Text style={s.companyLine}>TELS. {phones}</Text> : null}
-            {settings.email ? <Text style={s.companyLine}>E-mail: {settings.email}</Text> : null}
+            <View style={s.companyTopRow}>
+              {logo ? <Image src={logo} style={s.headerLogo} /> : null}
+              <View style={s.companyNameWrap}>
+                <Text style={s.companyName}>{settings.companyName || settings.brandName}</Text>
+                {settings.rfc ? <Text style={s.companyRfc}>R.F.C. {settings.rfc}</Text> : null}
+              </View>
+            </View>
+            {phones ? (
+              <Text style={s.companyLine}>TELS. {phones}{settings.email ? `   E-mail: ${settings.email}` : ''}</Text>
+            ) : settings.email ? (
+              <Text style={s.companyLine}>E-mail: {settings.email}</Text>
+            ) : null}
             {addressLine ? <Text style={s.companyLine}>{addressLine}</Text> : null}
           </View>
 
-          {/* Right: 2 rows × 3 boxes */}
+          {/* Right: 2 rows × 3 boxes, blue header strip + white body */}
           <View style={s.metaGrid}>
             {/* Row 1: VENDEDOR | FECHA | REMISIÓN */}
             <View style={s.metaRow}>
               <View style={s.metaBox}>
-                <Text style={s.metaLabel}>VENDEDOR</Text>
-                <Text style={s.metaValue}>{remission.salesPerson ?? ''}</Text>
+                <View style={s.metaHead}><Text style={s.metaHeadText}>VENDEDOR</Text></View>
+                <View style={s.metaBody}><Text style={s.metaValue}>{remission.salesPerson ?? ''}</Text></View>
               </View>
               <View style={s.metaBox}>
-                <Text style={s.metaLabel}>FECHA</Text>
-                <Text style={s.metaValue}>{fmtDate(remission.date)}</Text>
+                <View style={s.metaHead}><Text style={s.metaHeadText}>FECHA</Text></View>
+                <View style={s.metaBody}><Text style={s.metaValue}>{fmtDate(remission.date)}</Text></View>
               </View>
-              <View style={[s.folioBox]}>
-                <Text style={s.folioTag}>REMISIÓN</Text>
-                <Text style={s.folioNum}>N° {remission.folioFormatted}</Text>
+              <View style={s.metaBox}>
+                <View style={s.metaHead}><Text style={s.metaHeadText}>REMISIÓN</Text></View>
+                <View style={s.metaBody}><Text style={s.folioValue}>N° {remission.folioFormatted}</Text></View>
               </View>
             </View>
             {/* Row 2: FECHA LÍMITE PAGO | % DEVOLUCIÓN | FECHA LÍMITE DEVOLUCIÓN */}
             <View style={s.metaRow}>
               <View style={s.metaBox}>
-                <Text style={s.metaLabel}>FECHA LÍMITE DE PAGO</Text>
-                <Text style={s.metaValue}>{fmtDate(remission.paymentDueDate)}</Text>
+                <View style={s.metaHead}><Text style={s.metaHeadText}>FECHA LÍMITE DE PAGO</Text></View>
+                <View style={s.metaBody}><Text style={s.metaValue}>{fmtDate(remission.paymentDueDate)}</Text></View>
               </View>
               <View style={s.metaBox}>
-                <Text style={s.metaLabel}>PORCENTAJE DE DEVOLUCIÓN</Text>
-                <Text style={s.metaValue}>{remission.returnPercentage}%</Text>
+                <View style={s.metaHead}><Text style={s.metaHeadText}>PORCENTAJE DE DEVOLUCIÓN</Text></View>
+                <View style={s.metaBody}><Text style={s.metaValue}>{remission.returnPercentage}%</Text></View>
               </View>
               <View style={s.metaBox}>
-                <Text style={s.metaLabel}>FECHA LÍMITE DE DEVOLUCIÓN</Text>
-                <Text style={s.metaValue}>{fmtDate(remission.returnDueDate)}</Text>
+                <View style={s.metaHead}><Text style={s.metaHeadText}>FECHA LÍMITE DE DEVOLUCIÓN</Text></View>
+                <View style={s.metaBody}><Text style={s.metaValue}>{fmtDate(remission.returnDueDate)}</Text></View>
               </View>
             </View>
           </View>
@@ -173,6 +184,8 @@ export function RemisionPdf({ remission, settings }: Props) {
         </View>
 
         {/* ── TABLE ── */}
+        <View style={s.tableWrap}>
+        {logo ? <Image src={logo} style={s.watermark} /> : null}
         <View style={s.table}>
           <View style={s.thead}>
             <Text style={[s.th, s.cMa]}>MAESTRO</Text>
@@ -183,7 +196,7 @@ export function RemisionPdf({ remission, settings }: Props) {
             <Text style={[s.th, s.cIm]}>IMPORTE</Text>
           </View>
           {remission.details.map((d, i) => (
-            <View key={i} style={i % 2 === 0 ? s.tr : s.trAlt}>
+            <View key={i} style={s.tr}>
               <Text style={[s.td, s.cMa]}>{d.teacher ?? ''}</Text>
               <Text style={[s.td, s.cEd]}>{d.publisherName ?? ''}</Text>
               <Text style={[s.td, s.cTi]}>{d.productName}</Text>
@@ -193,9 +206,8 @@ export function RemisionPdf({ remission, settings }: Props) {
             </View>
           ))}
           {Array.from({ length: emptyRows }).map((_, i) => {
-            const idx = remission.details.length + i
             return (
-              <View key={`e${i}`} style={idx % 2 === 0 ? s.tr : s.trAlt}>
+              <View key={`e${i}`} style={s.tr}>
                 <Text style={[s.td, s.cMa]}> </Text>
                 <Text style={[s.td, s.cEd]}> </Text>
                 <Text style={[s.td, s.cTi]}> </Text>
@@ -205,6 +217,7 @@ export function RemisionPdf({ remission, settings }: Props) {
               </View>
             )
           })}
+        </View>
         </View>
 
         {/* ── FOOTER: OBSERVACIONES + FIRMA + TOTALES ── */}

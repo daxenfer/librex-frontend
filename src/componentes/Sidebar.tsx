@@ -37,6 +37,12 @@ const navGroups: NavGroup[] = [
       { path: '/reports', label: 'Reportes', icon: '📊' },
     ],
   },
+  {
+    label: 'Sistema',
+    items: [
+      { path: '/settings', label: 'Configuración', icon: '⚙️' },
+    ],
+  },
 ]
 
 const comingSoonItems = [

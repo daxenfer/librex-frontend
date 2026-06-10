@@ -13,6 +13,7 @@ import { ReturnNoteForm } from './paginas/DevolucionFormulario'
 import { PaymentsPage } from './paginas/PagosPagina'
 import { PaymentForm } from './paginas/PagoFormulario'
 import { ReportsPage } from './paginas/ReportesPagina'
+import { SettingsPage } from './paginas/AjustesPagina'
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
               <Route path="/payments/new" element={<PaymentForm />} />
               <Route path="/payments/:id/edit" element={<PaymentForm />} />
               <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
             </Route>
           </Route>
           <Route path="/" element={<Navigate to="/products" replace />} />
