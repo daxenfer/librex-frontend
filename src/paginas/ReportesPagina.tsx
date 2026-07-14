@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import {
   reportService,
-  type CustomerReportRow, type PublisherReport,
+  type CustomerReportRow, type SupplierReport,
   type SalesByProductReport,
 } from '../servicios/reportesServicio'
-import { publisherService, type PublisherDto } from '../servicios/editorialesServicio'
+import { supplierService, type SupplierDto } from '../servicios/proveedoresServicio'
 import { exportToExcel } from '../utils/exportarExcel'
 
 type Tab = 'saldos' | 'cantidades'
@@ -14,10 +14,10 @@ const fmt = (n: number) =>
 
 export function ReportsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('saldos')
-  const [publishers, setPublishers] = useState<PublisherDto[]>([])
+  const [suppliers, setSuppliers] = useState<SupplierDto[]>([])
 
   useEffect(() => {
-    publisherService.getAll().then(setPublishers).catch(() => {})
+    supplierService.getAll().then(setSuppliers).catch(() => {})
   }, [])
 
   return (
@@ -29,8 +29,8 @@ export function ReportsPage() {
         <TabButton label="Cantidades por producto" active={activeTab === 'cantidades'} onClick={() => setActiveTab('cantidades')} />
       </div>
 
-      {activeTab === 'saldos' && <SaldosReport publishers={publishers} />}
-      {activeTab === 'cantidades' && <CantidadesReport publishers={publishers} />}
+      {activeTab === 'saldos' && <SaldosReport suppliers={suppliers} />}
+      {activeTab === 'cantidades' && <CantidadesReport suppliers={suppliers} />}
     </div>
   )
 }
@@ -55,9 +55,9 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
 
 /* ── Tab 1: Saldos por cliente ─────────────────────────────── */
 
-function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
-  const [selectedPublisherId, setSelectedPublisherId] = useState<string>('')
-  const [reports, setReports] = useState<PublisherReport[]>([])
+function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('')
+  const [reports, setReports] = useState<SupplierReport[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -67,14 +67,14 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
     setLoading(true); setError(null)
     try {
       if (pid) {
-        const r = await reportService.getByPublisher(Number(pid))
+        const r = await reportService.getBySupplier(Number(pid))
         setReports([r])
-        setExpanded(new Set([String(r.publisherId ?? 'all')]))
+        setExpanded(new Set([String(r.supplierId ?? 'all')]))
       } else {
-        const results = await Promise.all(publishers.map(p => reportService.getByPublisher(p.id)))
+        const results = await Promise.all(suppliers.map(p => reportService.getBySupplier(p.id)))
         const filtered = results.filter(r => r.customers.length > 0)
         setReports(filtered)
-        setExpanded(new Set(filtered.map(r => String(r.publisherId ?? 'all'))))
+        setExpanded(new Set(filtered.map(r => String(r.supplierId ?? 'all'))))
       }
     } catch {
       setError('No se pudo generar el reporte.')
@@ -84,8 +84,8 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
   }
 
   useEffect(() => {
-    if (publishers.length > 0) load(selectedPublisherId)
-  }, [publishers])
+    if (suppliers.length > 0) load(selectedSupplierId)
+  }, [suppliers])
 
   const toggle = (key: string) =>
     setExpanded(prev => {
@@ -95,14 +95,14 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
     })
 
   const handleFilter = (pid: string) => {
-    setSelectedPublisherId(pid)
-    if (publishers.length > 0) load(pid)
+    setSelectedSupplierId(pid)
+    if (suppliers.length > 0) load(pid)
   }
 
   const downloadExcel = () => {
     const rows = reports.flatMap(report => [
       ...report.customers.map(row => ({
-        'Editorial': report.publisherName,
+        'Proveedor': report.supplierName,
         'Cliente': row.customerName,
         'Ventas': row.totalSales,
         'Devoluciones': row.totalReturns,
@@ -110,7 +110,7 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
         'Saldo': row.balance,
       })),
       {
-        'Editorial': report.publisherName,
+        'Proveedor': report.supplierName,
         'Cliente': 'TOTALES',
         'Ventas': report.totals.totalSales,
         'Devoluciones': report.totals.totalReturns,
@@ -124,13 +124,13 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
   const downloadPdf = async () => {
     setPdfLoading(true)
     try {
-      const publisherName = publishers.find(p => String(p.id) === selectedPublisherId)?.name ?? ''
+      const supplierName = suppliers.find(p => String(p.id) === selectedSupplierId)?.name ?? ''
       const [{ pdf }, { SaldosReportePdf }] = await Promise.all([
         import('@react-pdf/renderer'),
         import('../componentes/SaldosReportePdf'),
       ])
       const blob = await pdf(
-        <SaldosReportePdf reports={reports} filtroEditorial={publisherName} />
+        <SaldosReportePdf reports={reports} filtroProveedor={supplierName} />
       ).toBlob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -146,10 +146,10 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
   return (
     <>
       <div style={filterBar}>
-        <label style={labelStyle}>Editorial</label>
-        <select style={selectStyle} value={selectedPublisherId} onChange={e => handleFilter(e.target.value)}>
-          <option value="">Todas las editoriales</option>
-          {publishers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        <label style={labelStyle}>Proveedor</label>
+        <select style={selectStyle} value={selectedSupplierId} onChange={e => handleFilter(e.target.value)}>
+          <option value="">Todos los proveedores</option>
+          {suppliers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <button style={btnExcelReport} onClick={downloadExcel} disabled={loading || reports.length === 0}>Descargar Excel</button>
         <button style={btnPdf} onClick={downloadPdf} disabled={loading || pdfLoading || reports.length === 0}>
@@ -162,7 +162,7 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
         {reports.map(report => {
-          const key = String(report.publisherId ?? 'all')
+          const key = String(report.supplierId ?? 'all')
           const open = expanded.has(key)
           const balance = report.totals?.balance ?? 0
           return (
@@ -170,7 +170,7 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
               <button style={accordionHeader} onClick={() => toggle(key)}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                   <span style={{ fontSize: '0.75rem', color: '#999', transition: 'transform 0.2s', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-                  <span style={{ fontWeight: 700, color: '#1a1a2e', fontSize: '0.95rem' }}>{report.publisherName}</span>
+                  <span style={{ fontWeight: 700, color: '#1a1a2e', fontSize: '0.95rem' }}>{report.supplierName}</span>
                   <span style={{ fontSize: '0.8rem', color: '#888' }}>{report.customers.length} cliente{report.customers.length !== 1 ? 's' : ''}</span>
                 </span>
                 <span style={{ fontSize: '0.9rem', fontWeight: 700, color: balance > 0 ? '#c0392b' : balance < 0 ? '#27ae60' : '#888' }}>
@@ -206,9 +206,9 @@ function SaldosReport({ publishers }: { publishers: PublisherDto[] }) {
                     </table>
                   </div>
                   <p style={{ fontSize: '0.75rem', color: '#aaa', margin: '0.5rem 1rem 0' }}>
-                    {selectedPublisherId
-                      ? '† Los pagos están prorrateados según la participación de esta editorial en cada remisión.'
-                      : '† Los pagos corresponden al total del cliente en todas las editoriales.'}
+                    {selectedSupplierId
+                      ? '† Los pagos están prorrateados según la participación de esta proveedor en cada remisión.'
+                      : '† Los pagos corresponden al total del cliente en todas las proveedores.'}
                   </p>
                 </div>
               )}
@@ -241,8 +241,8 @@ function SaldoCell({ value }: { value: number }) {
 
 /* ── Tab 2: Cantidades por producto ────────────────────────── */
 
-function CantidadesReport({ publishers }: { publishers: PublisherDto[] }) {
-  const [selectedPublisherId, setSelectedPublisherId] = useState<string>('')
+function CantidadesReport({ suppliers }: { suppliers: SupplierDto[] }) {
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('')
   const [reports, setReports] = useState<SalesByProductReport[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -255,12 +255,12 @@ function CantidadesReport({ publishers }: { publishers: PublisherDto[] }) {
       if (pid) {
         const r = await reportService.getSalesByProduct(Number(pid))
         setReports([r])
-        setExpanded(new Set([String(r.publisherId ?? 'all')]))
+        setExpanded(new Set([String(r.supplierId ?? 'all')]))
       } else {
-        const results = await Promise.all(publishers.map(p => reportService.getSalesByProduct(p.id)))
+        const results = await Promise.all(suppliers.map(p => reportService.getSalesByProduct(p.id)))
         const filtered = results.filter(r => r.rows.length > 0)
         setReports(filtered)
-        setExpanded(new Set(filtered.map(r => String(r.publisherId ?? 'all'))))
+        setExpanded(new Set(filtered.map(r => String(r.supplierId ?? 'all'))))
       }
     } catch {
       setError('No se pudo generar el reporte.')
@@ -270,8 +270,8 @@ function CantidadesReport({ publishers }: { publishers: PublisherDto[] }) {
   }
 
   useEffect(() => {
-    if (publishers.length > 0) load(selectedPublisherId)
-  }, [publishers])
+    if (suppliers.length > 0) load(selectedSupplierId)
+  }, [suppliers])
 
   const toggle = (key: string) =>
     setExpanded(prev => {
@@ -281,20 +281,20 @@ function CantidadesReport({ publishers }: { publishers: PublisherDto[] }) {
     })
 
   const handleFilter = (pid: string) => {
-    setSelectedPublisherId(pid)
-    if (publishers.length > 0) load(pid)
+    setSelectedSupplierId(pid)
+    if (suppliers.length > 0) load(pid)
   }
 
   const downloadExcel = () => {
     const rows = reports.flatMap(report => [
       ...report.rows.map(row => {
-        const obj: Record<string, unknown> = { 'Editorial': report.publisherName, 'Cliente': row.customerName }
+        const obj: Record<string, unknown> = { 'Proveedor': report.supplierName, 'Cliente': row.customerName }
         report.products.forEach((p, i) => { obj[p.productName] = row.quantities[i] ?? 0 })
         obj['Total'] = row.totalQuantity
         return obj
       }),
       (() => {
-        const obj: Record<string, unknown> = { 'Editorial': report.publisherName, 'Cliente': 'TOTALES' }
+        const obj: Record<string, unknown> = { 'Proveedor': report.supplierName, 'Cliente': 'TOTALES' }
         report.products.forEach((p, i) => { obj[p.productName] = report.productTotals[i] ?? 0 })
         obj['Total'] = report.grandTotal
         return obj
@@ -306,13 +306,13 @@ function CantidadesReport({ publishers }: { publishers: PublisherDto[] }) {
   const downloadPdf = async () => {
     setPdfLoading(true)
     try {
-      const publisherName = publishers.find(p => String(p.id) === selectedPublisherId)?.name ?? ''
+      const supplierName = suppliers.find(p => String(p.id) === selectedSupplierId)?.name ?? ''
       const [{ pdf }, { CantidadesReportePdf }] = await Promise.all([
         import('@react-pdf/renderer'),
         import('../componentes/CantidadesReportePdf'),
       ])
       const blob = await pdf(
-        <CantidadesReportePdf reports={reports} filtroEditorial={publisherName} />
+        <CantidadesReportePdf reports={reports} filtroProveedor={supplierName} />
       ).toBlob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -328,10 +328,10 @@ function CantidadesReport({ publishers }: { publishers: PublisherDto[] }) {
   return (
     <>
       <div style={filterBar}>
-        <label style={labelStyle}>Editorial</label>
-        <select style={selectStyle} value={selectedPublisherId} onChange={e => handleFilter(e.target.value)}>
-          <option value="">Todas las editoriales</option>
-          {publishers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        <label style={labelStyle}>Proveedor</label>
+        <select style={selectStyle} value={selectedSupplierId} onChange={e => handleFilter(e.target.value)}>
+          <option value="">Todos los proveedores</option>
+          {suppliers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <button style={btnExcelReport} onClick={downloadExcel} disabled={loading || reports.length === 0}>Descargar Excel</button>
         <button style={btnPdf} onClick={downloadPdf} disabled={loading || pdfLoading || reports.length === 0}>
@@ -344,14 +344,14 @@ function CantidadesReport({ publishers }: { publishers: PublisherDto[] }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
         {reports.map(report => {
-          const key = String(report.publisherId ?? 'all')
+          const key = String(report.supplierId ?? 'all')
           const open = expanded.has(key)
           return (
             <div key={key} style={accordionWrapper}>
               <button style={accordionHeader} onClick={() => toggle(key)}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                   <span style={{ fontSize: '0.75rem', color: '#999', transition: 'transform 0.2s', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-                  <span style={{ fontWeight: 700, color: '#1a1a2e', fontSize: '0.95rem' }}>{report.publisherName}</span>
+                  <span style={{ fontWeight: 700, color: '#1a1a2e', fontSize: '0.95rem' }}>{report.supplierName}</span>
                   <span style={{ fontSize: '0.8rem', color: '#888' }}>{report.products.length} producto{report.products.length !== 1 ? 's' : ''}</span>
                 </span>
                 <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1a1a2e' }}>

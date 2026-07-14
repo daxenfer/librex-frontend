@@ -1,83 +1,91 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { paymentService, PAYMENT_METHODS, type PaymentDto } from '../servicios/pagosServicio'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { paymentService, PAYMENT_METHODS, type PaymentDto, type CreatePaymentAllocationDto } from '../servicios/pagosServicio'
 import { customerService, type CustomerDto } from '../servicios/clientesServicio'
-import { remissionService, type RemissionDto } from '../servicios/remisionesServicio'
 import { DateField } from '../componentes/DateField'
+import { downloadPaymentPdf, printPaymentPdf } from '../utils/pagoPdf'
+import { todayIso, toUtcNoon } from '../utils/dates'
 
 export function PaymentForm() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
   const isEdit = !!id
 
-  const [customerId, setCustomerId] = useState('')
-  const [remissionId, setRemissionId] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [customerId, setCustomerId] = useState(searchParams.get('customerId') ?? '')
+  const [date, setDate] = useState(todayIso())
   const [amount, setAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<string>(PAYMENT_METHODS[0])
   const [reference, setReference] = useState('')
+  const [receivedFrom, setReceivedFrom] = useState('')
+  const [concept, setConcept] = useState('')
+  const [collectedBy, setCollectedBy] = useState('')
+  const [city, setCity] = useState('')
   const [notes, setNotes] = useState('')
-  const [isActive, setIsActive] = useState(true)
+  // Asignaciones a remisiones hechas en Cuentas por Cobrar. Este formulario no las edita,
+  // pero debe reenviarlas en el update para no borrarlas (PUT reemplaza la colección).
+  const [allocations, setAllocations] = useState<CreatePaymentAllocationDto[]>([])
 
   const [customers, setCustomers] = useState<CustomerDto[]>([])
-  const [remissions, setRemissions] = useState<RemissionDto[]>([])
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(isEdit)
   const [savedPayment, setSavedPayment] = useState<PaymentDto | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([customerService.getAll(), remissionService.getAll()])
-      .then(([c, r]) => { setCustomers(c); setRemissions(r) })
-      .catch(() => {})
+    customerService.getAll().then(list => {
+      setCustomers(list)
+      // Prellenar la ciudad con la del cliente preseleccionado (p.ej. al venir de CxC).
+      if (!isEdit && customerId) {
+        const c = list.find(x => String(x.id) === customerId)
+        if (c?.city) setCity(prev => prev || c.city)
+      }
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
     if (!isEdit) return
     paymentService.getById(Number(id)).then(p => {
       setCustomerId(String(p.customerId))
-      setRemissionId(p.remissionId ? String(p.remissionId) : '')
       setDate(p.date.slice(0, 10))
       setAmount(String(p.amount))
       setPaymentMethod(p.paymentMethod)
       setReference(p.reference ?? '')
+      setReceivedFrom(p.receivedFrom ?? '')
+      setConcept(p.concept ?? '')
+      setCollectedBy(p.collectedBy ?? '')
+      setCity(p.city ?? '')
       setNotes(p.notes ?? '')
-      setIsActive(p.isActive)
+      setAllocations(p.allocations.map(a => ({ remissionId: a.remissionId, amount: a.amount })))
       setSavedPayment(p)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
 
-  const customerRemissions = remissions.filter(r => r.customerId === Number(customerId))
-
-  const handleCustomerChange = (val: string) => {
-    setCustomerId(val)
-    setRemissionId('')
-  }
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!customerId) { setError('Selecciona un cliente.'); return }
-    if (!remissionId) { setError('Selecciona una remisión.'); return }
     if (!amount || parseFloat(amount) <= 0) { setError('El monto debe ser mayor a cero.'); return }
     setSaving(true); setError(null)
     try {
       const base = {
         customerId: Number(customerId),
-        remissionId: Number(remissionId),
-        date: new Date(date).toISOString(),
+        date: toUtcNoon(date),
         amount: parseFloat(amount),
         paymentMethod,
         reference: reference || undefined,
+        receivedFrom: receivedFrom || undefined,
+        concept: concept || undefined,
+        collectedBy: collectedBy || undefined,
+        city: city || undefined,
         notes: notes || undefined,
+        allocations, // [] al crear; en edición conserva lo asignado en Cuentas por Cobrar
       }
-      let result: PaymentDto
       if (isEdit) {
-        result = await paymentService.update(Number(id), { ...base, isActive })
+        await paymentService.update(Number(id), { ...base, isActive: true })
       } else {
-        result = await paymentService.create(base)
+        await paymentService.create(base)
       }
-      setSavedPayment(result)
       navigate('/payments')
     } catch {
       setError('Error al guardar el pago.')
@@ -86,24 +94,42 @@ export function PaymentForm() {
     }
   }
 
+  // Al cambiar de cliente, prellenar la ciudad si está vacía o traía la del cliente anterior
+  // (no pisa lo que el usuario haya escrito a mano).
+  const handleCustomerChange = (value: string) => {
+    const prev = customers.find(c => String(c.id) === customerId)
+    const next = customers.find(c => String(c.id) === value)
+    setCustomerId(value)
+    if (next?.city && (!city || city === prev?.city)) setCity(next.city)
+  }
+
+  const downloadPdf = () => { if (savedPayment) downloadPaymentPdf(savedPayment) }
+  const printPdf = () => { if (savedPayment) printPaymentPdf(savedPayment) }
+
   if (loading) return <div style={{ padding: '2rem' }}>Cargando...</div>
 
   return (
     <div style={{ padding: '1.5rem 2rem', maxWidth: 760, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <h4 style={{ color: '#1a1a2e', fontWeight: 700, margin: 0 }}>
-          {isEdit ? `Pago ${savedPayment?.folioFormatted ?? ''}` : 'Nuevo pago'}
+          {isEdit ? `Recibo ${savedPayment?.folioFormatted ?? ''}` : 'Nuevo pago'}
         </h4>
+        {isEdit && savedPayment && (
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button type="button" style={btnPdf} onClick={downloadPdf}>📄 Descargar PDF</button>
+            <button type="button" style={btnPrintPdf} onClick={printPdf}>🖨️ Imprimir</button>
+          </div>
+        )}
       </div>
 
       {error && <p style={{ color: '#c0392b', marginBottom: '1rem' }}>{error}</p>}
 
       <form onSubmit={handleSubmit}>
         <div style={card}>
-          <h6 style={sectionTitle}>Datos generales</h6>
+          <h6 style={sectionTitle}>Datos del recibo</h6>
           <div style={row}>
             <div style={field}>
-              <label style={label}>Cliente *</label>
+              <label style={label}>Recibimos de (cliente) *</label>
               <select style={input} value={customerId} onChange={e => handleCustomerChange(e.target.value)} required>
                 <option value="">Seleccionar cliente...</option>
                 {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -113,17 +139,17 @@ export function PaymentForm() {
               <label style={label}>Fecha *</label>
               <DateField value={date} onChange={setDate} required />
             </div>
+            <div style={{ ...field, maxWidth: 200 }}>
+              <label style={label}>Ciudad</label>
+              <input style={input} type="text" value={city} onChange={e => setCity(e.target.value)}
+                maxLength={100} placeholder="Municipio" />
+            </div>
           </div>
-
           <div style={{ ...row, marginTop: 10 }}>
-            <div style={{ ...field, flex: 2 }}>
-              <label style={label}>Remisión *</label>
-              <select style={input} value={remissionId} onChange={e => setRemissionId(e.target.value)} disabled={!customerId} required>
-                <option value="" disabled>Seleccionar remisión...</option>
-                {customerRemissions.map(r => (
-                  <option key={r.id} value={r.id}>N° {r.folioFormatted} — {new Date(r.date).toLocaleDateString('es-MX')}</option>
-                ))}
-              </select>
+            <div style={field}>
+              <label style={label}>Nombre de la escuela</label>
+              <input style={input} type="text" value={receivedFrom} onChange={e => setReceivedFrom(e.target.value)}
+                maxLength={200} placeholder="Nombre de la escuela (opcional)" />
             </div>
           </div>
         </div>
@@ -140,14 +166,30 @@ export function PaymentForm() {
               />
             </div>
             <div style={field}>
-              <label style={label}>Método de pago *</label>
+              <label style={label}>Forma de pago *</label>
               <select style={input} value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} required>
                 {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
             <div style={{ ...field, flex: 2 }}>
-              <label style={label}>Referencia <span style={{ color: '#888', fontSize: '0.75rem' }}>(folio, clave, etc.)</span></label>
-              <input style={input} type="text" value={reference} onChange={e => setReference(e.target.value)} maxLength={200} placeholder="Número de cheque, clave de transferencia..." />
+              <label style={label}>Referencia <span style={{ color: '#888', fontSize: '0.75rem' }}>(No. de cheque, depósito, etc.)</span></label>
+              <input style={input} type="text" value={reference} onChange={e => setReference(e.target.value)} maxLength={200} placeholder="Número de cheque, folio de depósito..." />
+            </div>
+          </div>
+        </div>
+
+        <div style={{ ...card, marginTop: 12 }}>
+          <h6 style={sectionTitle}>Concepto</h6>
+          <div style={row}>
+            <div style={{ ...field, flex: 2 }}>
+              <label style={label}>Por concepto de</label>
+              <input style={input} type="text" value={concept} onChange={e => setConcept(e.target.value)}
+                maxLength={500} placeholder="Concepto del pago" />
+            </div>
+            <div style={field}>
+              <label style={label}>Vendedor ó cobrador</label>
+              <input style={input} type="text" value={collectedBy} onChange={e => setCollectedBy(e.target.value)}
+                maxLength={200} placeholder="Quien recibe el pago" />
             </div>
           </div>
         </div>
@@ -161,14 +203,6 @@ export function PaymentForm() {
           />
         </div>
 
-        {isEdit && (
-          <div style={{ marginTop: 12 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', cursor: 'pointer' }}>
-              <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
-              Activo
-            </label>
-          </div>
-        )}
 
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: 16 }}>
           <button type="submit" disabled={saving} style={btnPrimary}>
@@ -189,3 +223,5 @@ const label: React.CSSProperties = { fontSize: '0.8rem', fontWeight: 600, color:
 const input: React.CSSProperties = { padding: '0.45rem 0.6rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.9rem', width: '100%', boxSizing: 'border-box' }
 const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.5rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem' }
 const btnSecondary: React.CSSProperties = { padding: '0.6rem 1.5rem', backgroundColor: '#fff', color: '#333', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem' }
+const btnPdf: React.CSSProperties = { padding: '0.5rem 1rem', backgroundColor: '#fff', color: '#1a1a2e', border: '1px solid #1a1a2e', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem' }
+const btnPrintPdf: React.CSSProperties = { padding: '0.5rem 1rem', backgroundColor: '#1a1a2e', color: '#fff', border: '1px solid #1a1a2e', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem' }

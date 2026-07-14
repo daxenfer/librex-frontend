@@ -4,7 +4,7 @@ export interface RemissionDetailDto {
   id: number
   productId: number
   productName: string
-  publisherName?: string
+  supplierName?: string
   teacher?: string
   quantity: number
   unitPrice: number
@@ -26,11 +26,11 @@ export interface RemissionDto {
   salesPerson?: string
   notes?: string
   recipientName?: string
+  purchaseOrder?: string
   deliveryDate: string
   paymentDueDate: string
   returnPercentage: number
   returnDueDate: string
-  discountPercentage: number
   discountAmount: number
   subtotal: number
   total: number
@@ -50,11 +50,12 @@ export interface CreateRemissionDto {
   salesPerson?: string
   notes?: string
   recipientName?: string
+  purchaseOrder?: string
   deliveryDate: string
   paymentDueDate: string
   returnPercentage: number
   returnDueDate: string
-  discountPercentage: number
+  discountAmount: number
   details: CreateRemissionDetailDto[]
 }
 

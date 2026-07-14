@@ -46,6 +46,8 @@ interface CustomInputProps {
 
 // react-datepicker passes ref + onClick to the custom input. readOnly makes the
 // whole field clickable (no typing) so clicking anywhere opens the calendar.
+// We intentionally do NOT open on focus: after picking a date the input regains
+// focus, and reopening there would keep the calendar from closing on select.
 const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
   ({ value, onClick, disabled, required, id, placeholder }, ref) => (
     <div style={{ position: 'relative', width: '100%' }}>
@@ -56,7 +58,6 @@ const CustomInput = forwardRef<HTMLInputElement, CustomInputProps>(
         readOnly
         value={value ?? ''}
         onClick={onClick}
-        onFocus={onClick}
         disabled={disabled}
         required={required}
         placeholder={placeholder ?? 'dd/mm/aaaa'}
@@ -84,7 +85,7 @@ export function DateField({ value, onChange, required, disabled, minDate, maxDat
   return (
     <DatePicker
       selected={parse(value)}
-      onChange={(date) => onChange(format(date))}
+      onChange={(date: Date | null) => onChange(format(date))}
       locale="es"
       dateFormat="dd/MM/yyyy"
       minDate={minDate}

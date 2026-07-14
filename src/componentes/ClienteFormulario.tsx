@@ -11,28 +11,28 @@ interface Props {
 
 export function CustomerForm({ show, customer, onSave, onClose }: Props) {
   const [name, setName] = useState('')
+  const [contact, setContact] = useState('')
   const [address, setAddress] = useState('')
   const [postalCode, setPostalCode] = useState('')
   const [phone, setPhone] = useState('')
   const [city, setCity] = useState('')
-  const [isActive, setIsActive] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (customer) {
       setName(customer.name)
+      setContact(customer.contact ?? '')
       setAddress(customer.address)
       setPostalCode(customer.postalCode)
       setPhone(customer.phone)
       setCity(customer.city)
-      setIsActive(customer.isActive)
     } else {
       setName('')
+      setContact('')
       setAddress('')
       setPostalCode('')
       setPhone('')
       setCity('')
-      setIsActive(true)
     }
   }, [customer, show])
 
@@ -40,8 +40,8 @@ export function CustomerForm({ show, customer, onSave, onClose }: Props) {
     e.preventDefault()
     setSaving(true)
     try {
-      const dto = { name, address, postalCode, phone, city }
-      await onSave(customer ? { ...dto, isActive } : dto)
+      const dto = { name, contact: contact || undefined, address, postalCode, phone, city }
+      await onSave(customer ? { ...dto, isActive: true } : dto)
     } finally {
       setSaving(false)
     }
@@ -64,6 +64,16 @@ export function CustomerForm({ show, customer, onSave, onClose }: Props) {
               maxLength={200}
               autoFocus
               placeholder="Nombre del cliente"
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Contacto</Form.Label>
+            <Form.Control
+              type="text"
+              value={contact}
+              onChange={e => setContact(e.target.value)}
+              maxLength={200}
+              placeholder="Persona de contacto"
             />
           </Form.Group>
           <Form.Group className="mb-3">
@@ -115,14 +125,6 @@ export function CustomerForm({ show, customer, onSave, onClose }: Props) {
               placeholder="Teléfono"
             />
           </Form.Group>
-          {customer && (
-            <Form.Check
-              type="checkbox"
-              label="Activo"
-              checked={isActive}
-              onChange={e => setIsActive(e.target.checked)}
-            />
-          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>

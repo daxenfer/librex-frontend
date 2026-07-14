@@ -9,7 +9,7 @@ const s = StyleSheet.create({
   title: { fontSize: 13, fontFamily: 'Helvetica-Bold', color: DARK, marginBottom: 2 },
   subtitle: { fontSize: 7.5, color: '#666', marginBottom: 10 },
   section: { marginBottom: 12 },
-  publisherName: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: DARK, marginBottom: 3, backgroundColor: LIGHT, padding: '3 5' },
+  supplierName: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: DARK, marginBottom: 3, backgroundColor: LIGHT, padding: '3 5' },
   table: { borderWidth: 1, borderColor: '#ccc' },
   thead: { flexDirection: 'row', backgroundColor: DARK },
   thCustomer: { paddingVertical: 3, paddingHorizontal: 4, color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 6.5, width: 100 },
@@ -28,22 +28,22 @@ const s = StyleSheet.create({
 
 interface Props {
   reports: SalesByProductReport[]
-  filtroEditorial: string
+  filtroProveedor: string
 }
 
-export function CantidadesReportePdf({ reports, filtroEditorial }: Props) {
+export function CantidadesReportePdf({ reports, filtroProveedor }: Props) {
   const fecha = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={s.page}>
         <Text style={s.title}>Reporte: Cantidades por producto</Text>
         <Text style={s.subtitle}>
-          {filtroEditorial ? `Editorial: ${filtroEditorial}` : 'Todas las editoriales'} — Generado el {fecha}
+          {filtroProveedor ? `Proveedor: ${filtroProveedor}` : 'Todos los proveedores'} — Generado el {fecha}
         </Text>
 
         {reports.map(report => (
-          <View key={String(report.publisherId ?? 'all')} style={s.section}>
-            <Text style={s.publisherName}>{report.publisherName}</Text>
+          <View key={String(report.supplierId ?? 'all')} style={s.section}>
+            <Text style={s.supplierName}>{report.supplierName}</Text>
             <View style={s.table}>
               <View style={s.thead}>
                 <Text style={s.thCustomer}>Cliente</Text>

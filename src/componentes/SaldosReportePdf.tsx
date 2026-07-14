@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
-import type { PublisherReport } from '../servicios/reportesServicio'
+import type { SupplierReport } from '../servicios/reportesServicio'
 
 const DARK = '#1a1a2e'
 const LIGHT = '#f4f4f8'
@@ -12,7 +12,7 @@ const s = StyleSheet.create({
   title: { fontSize: 14, fontFamily: 'Helvetica-Bold', color: DARK, marginBottom: 2 },
   subtitle: { fontSize: 8, color: '#666', marginBottom: 12 },
   section: { marginBottom: 14 },
-  publisherName: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: DARK, marginBottom: 4, backgroundColor: LIGHT, padding: '4 6' },
+  supplierName: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: DARK, marginBottom: 4, backgroundColor: LIGHT, padding: '4 6' },
   table: { borderWidth: 1, borderColor: '#ccc' },
   thead: { flexDirection: 'row', backgroundColor: DARK },
   th: { paddingVertical: 4, paddingHorizontal: 6, color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 7, flex: 1 },
@@ -29,23 +29,23 @@ const s = StyleSheet.create({
 })
 
 interface Props {
-  reports: PublisherReport[]
-  filtroEditorial: string
+  reports: SupplierReport[]
+  filtroProveedor: string
 }
 
-export function SaldosReportePdf({ reports, filtroEditorial }: Props) {
+export function SaldosReportePdf({ reports, filtroProveedor }: Props) {
   const fecha = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
   return (
     <Document>
       <Page size="A4" style={s.page}>
         <Text style={s.title}>Reporte: Saldos por cliente</Text>
         <Text style={s.subtitle}>
-          {filtroEditorial ? `Editorial: ${filtroEditorial}` : 'Todas las editoriales'} — Generado el {fecha}
+          {filtroProveedor ? `Proveedor: ${filtroProveedor}` : 'Todos los proveedores'} — Generado el {fecha}
         </Text>
 
         {reports.map(report => (
-          <View key={String(report.publisherId ?? 'all')} style={s.section}>
-            <Text style={s.publisherName}>{report.publisherName}</Text>
+          <View key={String(report.supplierId ?? 'all')} style={s.section}>
+            <Text style={s.supplierName}>{report.supplierName}</Text>
             <View style={s.table}>
               <View style={s.thead}>
                 <Text style={s.th}>Cliente</Text>

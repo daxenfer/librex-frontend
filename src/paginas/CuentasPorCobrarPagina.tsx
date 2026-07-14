@@ -1,78 +1,72 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   useReactTable, getCoreRowModel, getSortedRowModel,
   getFilteredRowModel, getPaginationRowModel, flexRender,
   type ColumnDef, type SortingState,
 } from '@tanstack/react-table'
-import { BsPencilSquare, BsTrash, BsFileEarmarkPdf, BsPrinter } from 'react-icons/bs'
-import { remissionService, type RemissionDto } from '../servicios/remisionesServicio'
-import { exportToExcel } from '../utils/exportarExcel'
-import { downloadRemissionPdf, printRemissionPdf, printRemissionPdfVertical } from '../utils/remisionPdf'
+import { receivablesService, type CustomerReceivable } from '../servicios/cobranzaServicio'
+import { CobranzaClienteModal } from '../componentes/CobranzaClienteModal'
 
-export function RemissionsPage() {
-  const navigate = useNavigate()
-  const [remissions, setRemissions] = useState<RemissionDto[]>([])
+const fmt = (n: number) => `$${n.toFixed(2)}`
+
+export function AccountsReceivablePage() {
+  const [rows, setRows] = useState<CustomerReceivable[]>([])
+  const [selected, setSelected] = useState<CustomerReceivable | null>(null)
+  const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'folioFormatted', desc: true }])
+  const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
   const load = async () => {
     setLoading(true); setError(null)
-    try { setRemissions(await remissionService.getAll()) }
-    catch { setError('No se pudieron cargar las remisiones.') }
+    try { setRows(await receivablesService.getAll()) }
+    catch { setError('No se pudieron cargar las cuentas por cobrar.') }
     finally { setLoading(false) }
   }
 
   useEffect(() => { load() }, [])
 
-  const downloadExcel = () => {
-    exportToExcel(
-      remissions.map(r => ({
-        'Folio': r.folioFormatted,
-        'Cliente': r.customerName,
-        'Fecha': new Date(r.date).toLocaleDateString('es-MX'),
-        'Subtotal': r.subtotal,
-        'Descuento': r.discountAmount,
-        'Total': r.total,
-      })),
-      'remisiones'
-    )
-  }
+  const openCustomer = (c: CustomerReceivable) => { setSelected(c); setShowModal(true) }
+  const closeModal = () => { setShowModal(false); setSelected(null) }
+  const onSaved = async () => { await load() }
 
-  const remove = async (id: number) => {
-    if (!confirm('¿Eliminar esta remisión?')) return
-    await remissionService.delete(id); await load()
-  }
-
-  const columns = useMemo<ColumnDef<RemissionDto>[]>(() => [
-    { accessorKey: 'folioFormatted', header: 'Folio' },
+  const columns = useMemo<ColumnDef<CustomerReceivable>[]>(() => [
     { accessorKey: 'customerName', header: 'Cliente' },
     {
-      accessorKey: 'date', header: 'Fecha',
-      cell: info => new Date(info.getValue() as string).toLocaleDateString('es-MX'),
+      accessorKey: 'openCount', header: 'Remisiones',
+      cell: info => `${info.getValue() as number}`,
     },
     {
-      accessorKey: 'total', header: 'Total',
-      cell: info => `$${(info.getValue() as number).toFixed(2)}`,
+      accessorKey: 'totalOutstanding', header: 'Por cobrar',
+      cell: info => <span style={{ fontWeight: 600 }}>{fmt(info.getValue() as number)}</span>,
+    },
+    {
+      accessorKey: 'overdueOutstanding', header: 'Vencido',
+      cell: info => {
+        const v = info.getValue() as number
+        return v > 0.01
+          ? <span style={overdueChip}>{fmt(v)}</span>
+          : <span style={{ color: '#999' }}>—</span>
+      },
+    },
+    {
+      accessorKey: 'availableCredit', header: 'Saldo a favor',
+      cell: info => {
+        const v = info.getValue() as number
+        return v > 0.01 ? fmt(v) : <span style={{ color: '#999' }}>—</span>
+      },
     },
     {
       id: 'acciones', header: 'Acciones', enableSorting: false,
       cell: ({ row }) => (
-        <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button style={btnReceipt} title="Descargar PDF" onClick={() => downloadRemissionPdf(row.original)}><BsFileEarmarkPdf size={15} /></button>
-          <button style={btnPrint} title="Imprimir horizontal" onClick={() => printRemissionPdf(row.original)}><BsPrinter size={15} /></button>
-          <button style={btnPrint} title="Imprimir vertical" onClick={() => printRemissionPdfVertical(row.original)}><BsPrinter size={15} style={{ transform: 'rotate(90deg)' }} /></button>
-          <button style={btnEdit} title="Editar" onClick={() => navigate(`/remissions/${row.original.id}/edit`)}><BsPencilSquare size={15} /></button>
-          <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>
-        </div>
+        <button style={btnPrimarySm} onClick={() => openCustomer(row.original)}>Ver / Aplicar</button>
       ),
     },
   ], [])
 
   const table = useReactTable({
-    data: remissions, columns,
+    data: rows, columns,
     state: { sorting, globalFilter },
     onSortingChange: setSorting, onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(),
@@ -80,16 +74,19 @@ export function RemissionsPage() {
     initialState: { pagination: { pageSize: 10 } },
   })
 
+  const grandTotal = rows.reduce((s, r) => s + r.totalOutstanding, 0)
+
   return (
     <div className="page-content" style={{ padding: '1.5rem 2rem' }}>
-      <h4 style={{ color: '#1a1a2e', marginBottom: '1.25rem', fontWeight: 700 }}>Remisiones</h4>
+      <h4 style={{ color: '#1a1a2e', marginBottom: '1.25rem', fontWeight: 700 }}>Cuentas por cobrar</h4>
       {error && <p style={{ color: '#c0392b', marginBottom: '1rem' }}>{error}</p>}
+
       <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-        <div className="toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem' }}>
-          <input style={searchInput} placeholder="Buscar remisiones..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} />
-          <button style={btnExcel} onClick={downloadExcel} disabled={loading || remissions.length === 0}>Descargar Excel</button>
-          <button style={btnPrimary} onClick={() => navigate('/remissions/new')}>+ Nueva remisión</button>
+        <div className="toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
+          <input style={searchInput} placeholder="Buscar clientes..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} />
+          <span style={{ fontSize: '0.95rem', color: '#1a1a2e', fontWeight: 700 }}>Total por cobrar: {fmt(grandTotal)}</span>
         </div>
+
         {loading ? <p>Cargando...</p> : (
           <>
             <div style={{ overflowX: 'auto' }}>
@@ -108,7 +105,7 @@ export function RemissionsPage() {
                 </thead>
                 <tbody>
                   {table.getRowModel().rows.length === 0 ? (
-                    <tr><td colSpan={columns.length} style={{ ...tdStyle, textAlign: 'center', color: '#888', padding: '2rem' }}>No hay remisiones registradas.</td></tr>
+                    <tr><td colSpan={columns.length} style={{ ...tdStyle, textAlign: 'center', color: '#888', padding: '2rem' }}>No hay cuentas por cobrar.</td></tr>
                   ) : table.getRowModel().rows.map(row => (
                     <tr key={row.id} style={{ borderBottom: '1px solid #eee' }}>
                       {row.getVisibleCells().map(cell => <td key={cell.id} style={tdStyle}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>)}
@@ -124,7 +121,7 @@ export function RemissionsPage() {
                   {[10, 25, 50].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-              <span style={{ fontSize: '0.875rem', color: '#555' }}>Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()} — {table.getFilteredRowModel().rows.length} remisión(es)</span>
+              <span style={{ fontSize: '0.875rem', color: '#555' }}>Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()} — {table.getFilteredRowModel().rows.length} cliente(s)</span>
               <div style={{ display: 'flex', gap: '0.4rem' }}>
                 <button style={btnPage} onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>← Anterior</button>
                 <button style={btnPage} onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>Siguiente →</button>
@@ -133,6 +130,8 @@ export function RemissionsPage() {
           </>
         )}
       </div>
+
+      <CobranzaClienteModal show={showModal} customer={selected} onClose={closeModal} onSaved={onSaved} />
     </div>
   )
 }
@@ -140,11 +139,6 @@ export function RemissionsPage() {
 const thStyle: React.CSSProperties = { padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: 700, borderBottom: '2px solid #ddd' }
 const tdStyle: React.CSSProperties = { padding: '0.65rem 1rem', fontSize: '0.9rem' }
 const searchInput: React.CSSProperties = { padding: '0.5rem 0.75rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.95rem', minWidth: '220px', flex: 1, maxWidth: '360px' }
-const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }
-const iconBtn = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.35rem 0.5rem', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' } as const
-const btnReceipt: React.CSSProperties = { ...iconBtn, backgroundColor: '#fff', color: '#1a1a2e', border: '1px solid #1a1a2e' }
-const btnPrint: React.CSSProperties = { ...iconBtn, backgroundColor: '#1a1a2e', color: '#fff', border: 'none' }
-const btnEdit: React.CSSProperties = { ...iconBtn, backgroundColor: '#2980b9', color: '#fff', border: 'none' }
-const btnDelete: React.CSSProperties = { ...iconBtn, backgroundColor: '#c0392b', color: '#fff', border: 'none' }
+const overdueChip: React.CSSProperties = { padding: '0.1rem 0.5rem', borderRadius: 10, fontSize: '0.78rem', fontWeight: 700, backgroundColor: '#f8d7da', color: '#721c24' }
+const btnPrimarySm: React.CSSProperties = { padding: '0.35rem 0.85rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', whiteSpace: 'nowrap' }
 const btnPage: React.CSSProperties = { padding: '0.35rem 0.75rem', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }
-const btnExcel: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }

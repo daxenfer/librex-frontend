@@ -1,44 +1,41 @@
 import { useState, useEffect } from 'react'
 import { Modal, Button, Form } from 'react-bootstrap'
-import type { PublisherDto, CreatePublisherDto, UpdatePublisherDto } from '../servicios/editorialesServicio'
+import type { SupplierDto, CreateSupplierDto, UpdateSupplierDto } from '../servicios/proveedoresServicio'
 
 interface Props {
   show: boolean
-  publisher?: PublisherDto | null
-  onSave: (data: CreatePublisherDto | UpdatePublisherDto) => Promise<void>
+  supplier?: SupplierDto | null
+  onSave: (data: CreateSupplierDto | UpdateSupplierDto) => Promise<void>
   onClose: () => void
 }
 
-export function PublisherForm({ show, publisher, onSave, onClose }: Props) {
+export function SupplierForm({ show, supplier, onSave, onClose }: Props) {
   const [name, setName] = useState('')
   const [contact, setContact] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
-  const [isActive, setIsActive] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (publisher) {
-      setName(publisher.name)
-      setContact(publisher.contact)
-      setPhone(publisher.phone)
-      setEmail(publisher.email)
-      setIsActive(publisher.isActive)
+    if (supplier) {
+      setName(supplier.name)
+      setContact(supplier.contact)
+      setPhone(supplier.phone)
+      setEmail(supplier.email)
     } else {
       setName('')
       setContact('')
       setPhone('')
       setEmail('')
-      setIsActive(true)
     }
-  }, [publisher, show])
+  }, [supplier, show])
 
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
     setSaving(true)
     try {
       const dto = { name, contact, phone, email }
-      await onSave(publisher ? { ...dto, isActive } : dto)
+      await onSave(supplier ? { ...dto, isActive: true } : dto)
     } finally {
       setSaving(false)
     }
@@ -47,7 +44,7 @@ export function PublisherForm({ show, publisher, onSave, onClose }: Props) {
   return (
     <Modal show={show} onHide={onClose} centered>
       <Modal.Header closeButton>
-        <Modal.Title>{publisher ? 'Editar editorial' : 'Nueva editorial'}</Modal.Title>
+        <Modal.Title>{supplier ? 'Editar proveedor' : 'Nueva proveedor'}</Modal.Title>
       </Modal.Header>
       <Form onSubmit={handleSubmit}>
         <Modal.Body>
@@ -60,7 +57,7 @@ export function PublisherForm({ show, publisher, onSave, onClose }: Props) {
               required
               maxLength={200}
               autoFocus
-              placeholder="Nombre de la editorial"
+              placeholder="Nombre de la proveedor"
             />
           </Form.Group>
           <Form.Group className="mb-3">
@@ -93,17 +90,9 @@ export function PublisherForm({ show, publisher, onSave, onClose }: Props) {
               onChange={e => setEmail(e.target.value)}
               required
               maxLength={150}
-              placeholder="correo@editorial.com"
+              placeholder="correo@proveedor.com"
             />
           </Form.Group>
-          {publisher && (
-            <Form.Check
-              type="checkbox"
-              label="Activo"
-              checked={isActive}
-              onChange={e => setIsActive(e.target.checked)}
-            />
-          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>

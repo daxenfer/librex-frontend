@@ -5,13 +5,14 @@ import { Layout } from './componentes/Layout'
 import { LoginPage } from './paginas/LoginPagina'
 import { ProductsPage } from './paginas/ProductosPagina'
 import { CustomersPage } from './paginas/ClientesPagina'
-import { PublishersPage } from './paginas/EditorialesPagina'
+import { SuppliersPage } from './paginas/ProveedoresPagina'
 import { RemissionsPage } from './paginas/RemisionesPagina'
 import { RemissionForm } from './paginas/RemisionFormulario'
 import { ReturnsPage } from './paginas/DevolucionesPagina'
 import { ReturnNoteForm } from './paginas/DevolucionFormulario'
 import { PaymentsPage } from './paginas/PagosPagina'
 import { PaymentForm } from './paginas/PagoFormulario'
+import { AccountsReceivablePage } from './paginas/CuentasPorCobrarPagina'
 import { ReportsPage } from './paginas/ReportesPagina'
 import { SettingsPage } from './paginas/AjustesPagina'
 
@@ -25,7 +26,7 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/customers" element={<CustomersPage />} />
-              <Route path="/publishers" element={<PublishersPage />} />
+              <Route path="/suppliers" element={<SuppliersPage />} />
               <Route path="/remissions" element={<RemissionsPage />} />
               <Route path="/remissions/new" element={<RemissionForm />} />
               <Route path="/remissions/:id/edit" element={<RemissionForm />} />
@@ -35,6 +36,7 @@ function App() {
               <Route path="/payments" element={<PaymentsPage />} />
               <Route path="/payments/new" element={<PaymentForm />} />
               <Route path="/payments/:id/edit" element={<PaymentForm />} />
+              <Route path="/receivables" element={<AccountsReceivablePage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>

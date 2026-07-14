@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Modal, Button, Form } from 'react-bootstrap'
 import type { ProductDto, CreateProductDto, UpdateProductDto } from '../servicios/productosServicio'
-import { publisherService, type PublisherDto } from '../servicios/editorialesServicio'
+import { supplierService, type SupplierDto } from '../servicios/proveedoresServicio'
 
 interface Props {
   show: boolean
@@ -12,24 +12,24 @@ interface Props {
 
 export function ProductForm({ show, product, onSave, onClose }: Props) {
   const [name, setName] = useState('')
-  const [publisherId, setPublisherId] = useState<string>('')
-  const [isActive, setIsActive] = useState(true)
+  const [isbn, setIsbn] = useState('')
+  const [supplierId, setSupplierId] = useState<string>('')
   const [saving, setSaving] = useState(false)
-  const [publishers, setPublishers] = useState<PublisherDto[]>([])
+  const [suppliers, setSuppliers] = useState<SupplierDto[]>([])
 
   useEffect(() => {
-    publisherService.getAll().then(setPublishers).catch(() => {})
+    supplierService.getAll().then(setSuppliers).catch(() => {})
   }, [])
 
   useEffect(() => {
     if (product) {
       setName(product.name)
-      setPublisherId(product.publisherId ? String(product.publisherId) : '')
-      setIsActive(product.isActive)
+      setIsbn(product.isbn ?? '')
+      setSupplierId(product.supplierId ? String(product.supplierId) : '')
     } else {
       setName('')
-      setPublisherId('')
-      setIsActive(true)
+      setIsbn('')
+      setSupplierId('')
     }
   }, [product, show])
 
@@ -37,8 +37,9 @@ export function ProductForm({ show, product, onSave, onClose }: Props) {
     e.preventDefault()
     setSaving(true)
     try {
-      const pid = Number(publisherId)
-      await onSave(product ? { name, publisherId: pid, isActive } : { name, publisherId: pid })
+      const pid = Number(supplierId)
+      const isbnValue = isbn || undefined
+      await onSave(product ? { name, isbn: isbnValue, supplierId: pid, isActive: true } : { name, isbn: isbnValue, supplierId: pid })
     } finally {
       setSaving(false)
     }
@@ -64,22 +65,24 @@ export function ProductForm({ show, product, onSave, onClose }: Props) {
             />
           </Form.Group>
           <Form.Group className="mb-3">
-            <Form.Label>Editorial *</Form.Label>
-            <Form.Select value={publisherId} onChange={e => setPublisherId(e.target.value)} required>
-              <option value="" disabled>Seleccionar editorial...</option>
-              {publishers.map(p => (
+            <Form.Label>ISBN</Form.Label>
+            <Form.Control
+              type="text"
+              value={isbn}
+              onChange={e => setIsbn(e.target.value)}
+              maxLength={50}
+              placeholder="ISBN del producto"
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Proveedor *</Form.Label>
+            <Form.Select value={supplierId} onChange={e => setSupplierId(e.target.value)} required>
+              <option value="" disabled>Seleccionar proveedor...</option>
+              {suppliers.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </Form.Select>
           </Form.Group>
-          {product && (
-            <Form.Check
-              type="checkbox"
-              label="Activo"
-              checked={isActive}
-              onChange={e => setIsActive(e.target.checked)}
-            />
-          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>

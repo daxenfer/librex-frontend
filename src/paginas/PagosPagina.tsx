@@ -5,7 +5,9 @@ import {
   getFilteredRowModel, getPaginationRowModel, flexRender,
   type ColumnDef, type SortingState,
 } from '@tanstack/react-table'
+import { BsPencilSquare, BsTrash, BsFileEarmarkPdf, BsPrinter } from 'react-icons/bs'
 import { paymentService, type PaymentDto } from '../servicios/pagosServicio'
+import { downloadPaymentPdf, printPaymentPdf } from '../utils/pagoPdf'
 
 export function PaymentsPage() {
   const navigate = useNavigate()
@@ -37,8 +39,8 @@ export function PaymentsPage() {
       cell: info => new Date(info.getValue() as string).toLocaleDateString('es-MX'),
     },
     {
-      accessorKey: 'remissionFolioFormatted', header: 'Remisión', enableSorting: false,
-      cell: info => `N° ${info.getValue() as string}`,
+      id: 'remissions', header: 'Remisiones', enableSorting: false,
+      cell: ({ row }) => row.original.allocations.map(a => `N° ${a.remissionFolioFormatted}`).join(', ') || '—',
     },
     { accessorKey: 'paymentMethod', header: 'Método' },
     {
@@ -46,11 +48,22 @@ export function PaymentsPage() {
       cell: info => `$${(info.getValue() as number).toFixed(2)}`,
     },
     {
+      accessorKey: 'unappliedAmount', header: 'Sin aplicar',
+      cell: info => {
+        const v = info.getValue() as number
+        return v > 0.01
+          ? <span style={{ color: '#b8860b', fontWeight: 600 }}>${v.toFixed(2)}</span>
+          : <span style={{ color: '#999' }}>—</span>
+      },
+    },
+    {
       id: 'acciones', header: 'Acciones', enableSorting: false,
       cell: ({ row }) => (
         <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button style={btnEdit} onClick={() => navigate(`/payments/${row.original.id}/edit`)}>Editar</button>
-          <button style={btnDelete} onClick={() => remove(row.original.id)}>Eliminar</button>
+          <button style={btnReceipt} title="Descargar PDF" onClick={() => downloadPaymentPdf(row.original)}><BsFileEarmarkPdf size={15} /></button>
+          <button style={btnPrint} title="Imprimir" onClick={() => printPaymentPdf(row.original)}><BsPrinter size={15} /></button>
+          <button style={btnEdit} title="Editar" onClick={() => navigate(`/payments/${row.original.id}/edit`)}><BsPencilSquare size={15} /></button>
+          <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>
         </div>
       ),
     },
@@ -125,6 +138,9 @@ const thStyle: React.CSSProperties = { padding: '0.75rem 1rem', textAlign: 'left
 const tdStyle: React.CSSProperties = { padding: '0.65rem 1rem', fontSize: '0.9rem' }
 const searchInput: React.CSSProperties = { padding: '0.5rem 0.75rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.95rem', minWidth: '220px', flex: 1, maxWidth: '360px' }
 const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }
-const btnEdit: React.CSSProperties = { padding: '0.3rem 0.75rem', backgroundColor: '#2980b9', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' }
-const btnDelete: React.CSSProperties = { padding: '0.3rem 0.75rem', backgroundColor: '#c0392b', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' }
+const iconBtn = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.35rem 0.5rem', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' } as const
+const btnReceipt: React.CSSProperties = { ...iconBtn, backgroundColor: '#fff', color: '#1a1a2e', border: '1px solid #1a1a2e' }
+const btnPrint: React.CSSProperties = { ...iconBtn, backgroundColor: '#1a1a2e', color: '#fff', border: 'none' }
+const btnEdit: React.CSSProperties = { ...iconBtn, backgroundColor: '#2980b9', color: '#fff', border: 'none' }
+const btnDelete: React.CSSProperties = { ...iconBtn, backgroundColor: '#c0392b', color: '#fff', border: 'none' }
 const btnPage: React.CSSProperties = { padding: '0.35rem 0.75rem', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }

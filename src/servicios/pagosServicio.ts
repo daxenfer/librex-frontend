@@ -1,7 +1,13 @@
 import api from './apiCliente'
 
-export const PAYMENT_METHODS = ['Efectivo', 'Transferencia', 'Cheque', 'Otro'] as const
+export const PAYMENT_METHODS = ['Efectivo', 'Cheque', 'Depósito', 'A cargo del Banco'] as const
 export type PaymentMethod = typeof PAYMENT_METHODS[number]
+
+export interface PaymentAllocationDto {
+  remissionId: number
+  remissionFolioFormatted: string
+  amount: number
+}
 
 export interface PaymentDto {
   id: number
@@ -9,24 +15,40 @@ export interface PaymentDto {
   folioFormatted: string
   customerId: number
   customerName: string
-  remissionId: number
-  remissionFolioFormatted: string
   date: string
   amount: number
+  appliedAmount: number
+  unappliedAmount: number
   paymentMethod: string
   reference?: string
   notes?: string
+  receivedFrom?: string
+  concept?: string
+  collectedBy?: string
+  city?: string
   isActive: boolean
+  allocations: PaymentAllocationDto[]
+}
+
+export interface CreatePaymentAllocationDto {
+  remissionId: number
+  amount: number
 }
 
 export interface CreatePaymentDto {
   customerId: number
-  remissionId: number
   date: string
   amount: number
   paymentMethod: string
   reference?: string
   notes?: string
+  receivedFrom?: string
+  concept?: string
+  collectedBy?: string
+  city?: string
+  // Puede ir vacía: el pago se captura a nivel cliente (recibo) y se asigna a
+  // remisiones después, en Cuentas por Cobrar.
+  allocations?: CreatePaymentAllocationDto[]
 }
 
 export interface UpdatePaymentDto extends CreatePaymentDto {

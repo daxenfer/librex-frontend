@@ -3,23 +3,19 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { remissionService, type CreateRemissionDetailDto, type RemissionDto } from '../servicios/remisionesServicio'
 import { customerService, type CustomerDto } from '../servicios/clientesServicio'
 import { productService, type ProductDto } from '../servicios/productosServicio'
-import { settingsService } from '../servicios/settingsServicio'
 import { DateField } from '../componentes/DateField'
+import { downloadRemissionPdf, printRemissionPdf, printRemissionPdfVertical } from '../utils/remisionPdf'
+import { todayIso, toUtcNoon } from '../utils/dates'
 
 interface DetailRow {
   productId: string
   teacher: string
-  publisherName: string
+  supplierName: string
   quantity: string
   unitPrice: string
 }
 
-const today = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-const toUtcNoon = (dateStr: string) => dateStr + 'T12:00:00.000Z'
-const emptyRow = (): DetailRow => ({ productId: '', teacher: '', publisherName: '', quantity: '', unitPrice: '' })
+const emptyRow = (): DetailRow => ({ productId: '', teacher: '', supplierName: '', quantity: '', unitPrice: '' })
 
 export function RemissionForm() {
   const navigate = useNavigate()
@@ -29,19 +25,19 @@ export function RemissionForm() {
   // Header fields
   const [customerId, setCustomerId] = useState('')
   const [salesPerson, setSalesPerson] = useState('')
-  const [deliveryDate, setDeliveryDate] = useState(today())
-  const [paymentDueDate, setPaymentDueDate] = useState(today())
+  const [purchaseOrder, setPurchaseOrder] = useState('')
+  const [deliveryDate, setDeliveryDate] = useState(todayIso())
+  const [paymentDueDate, setPaymentDueDate] = useState(todayIso())
   const [returnPercentage, setReturnPercentage] = useState('0')
-  const [returnDueDate, setReturnDueDate] = useState(today())
+  const [returnDueDate, setReturnDueDate] = useState(todayIso())
 
   // Detail table
   const [details, setDetails] = useState<DetailRow[]>([emptyRow()])
-  const [discountPercentage, setDiscountPercentage] = useState('0')
+  const [discount, setDiscount] = useState('0')
 
   // Footer
   const [notes, setNotes] = useState('')
   const [recipientName, setRecipientName] = useState('')
-  const [isActive, setIsActive] = useState(true)
 
   const [customers, setCustomers] = useState<CustomerDto[]>([])
   const [products, setProducts] = useState<ProductDto[]>([])
@@ -61,19 +57,19 @@ export function RemissionForm() {
     remissionService.getById(Number(id)).then(r => {
       setCustomerId(String(r.customerId))
       setSalesPerson(r.salesPerson ?? '')
+      setPurchaseOrder(r.purchaseOrder ?? '')
       setDeliveryDate(r.deliveryDate.slice(0, 10))
       setPaymentDueDate(r.paymentDueDate.slice(0, 10))
       setReturnPercentage(String(r.returnPercentage))
       setReturnDueDate(r.returnDueDate.slice(0, 10))
-      setDiscountPercentage(String(r.discountPercentage))
+      setDiscount(String(r.discountAmount))
       setNotes(r.notes ?? '')
       setRecipientName(r.recipientName ?? '')
-      setIsActive(r.isActive)
       setSavedRemission(r)
       setDetails(r.details.map(d => ({
         productId: String(d.productId),
         teacher: d.teacher ?? '',
-        publisherName: d.publisherName ?? '',
+        supplierName: d.supplierName ?? '',
         quantity: String(d.quantity),
         unitPrice: String(d.unitPrice),
       })))
@@ -89,7 +85,7 @@ export function RemissionForm() {
       next[i] = { ...next[i], [field]: value }
       if (field === 'productId' && value) {
         const p = productMap[Number(value)]
-        if (p) next[i].publisherName = p.publisherName ?? ''
+        if (p) next[i].supplierName = p.supplierName ?? ''
       }
       return next
     })
@@ -101,8 +97,7 @@ export function RemissionForm() {
   const subtotal = details.reduce((sum, d) => {
     return sum + (parseFloat(d.quantity) || 0) * (parseFloat(d.unitPrice) || 0)
   }, 0)
-  const discountPct = parseFloat(discountPercentage) || 0
-  const discountAmount = subtotal * discountPct / 100
+  const discountAmount = parseFloat(discount) || 0
   const total = subtotal - discountAmount
 
   const handleSubmit = async (e: React.SyntheticEvent) => {
@@ -124,16 +119,17 @@ export function RemissionForm() {
         salesPerson: salesPerson || undefined,
         notes: notes || undefined,
         recipientName: recipientName || undefined,
+        purchaseOrder: purchaseOrder || undefined,
         deliveryDate: toUtcNoon(deliveryDate),
         paymentDueDate: toUtcNoon(paymentDueDate),
         returnPercentage: parseFloat(returnPercentage) || 0,
         returnDueDate: toUtcNoon(returnDueDate),
-        discountPercentage: discountPct,
+        discountAmount,
         details: dtos,
       }
       let result: RemissionDto
       if (isEdit) {
-        result = await remissionService.update(Number(id), { ...base, isActive })
+        result = await remissionService.update(Number(id), { ...base, isActive: true })
       } else {
         result = await remissionService.create(base)
       }
@@ -148,18 +144,17 @@ export function RemissionForm() {
 
   const downloadPdf = async () => {
     if (!savedRemission) return
-    const settings = await settingsService.get()
-    const [{ pdf }, { RemisionPdf }] = await Promise.all([
-      import('@react-pdf/renderer'),
-      import('../componentes/RemisionPdf'),
-    ])
-    const blob = await pdf(<RemisionPdf remission={savedRemission} settings={settings} />).toBlob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `remision-${savedRemission.folioFormatted}.pdf`
-    a.click()
-    URL.revokeObjectURL(url)
+    await downloadRemissionPdf(savedRemission)
+  }
+
+  const printPdf = async () => {
+    if (!savedRemission) return
+    await printRemissionPdf(savedRemission)
+  }
+
+  const printPdfVertical = async () => {
+    if (!savedRemission) return
+    await printRemissionPdfVertical(savedRemission)
   }
 
   if (loading) return <div style={{ padding: '2rem' }}>Cargando...</div>
@@ -171,7 +166,11 @@ export function RemissionForm() {
           {isEdit ? `Remisión ${savedRemission?.folioFormatted ?? ''}` : 'Nueva remisión'}
         </h4>
         {isEdit && savedRemission && (
-          <button style={btnPdf} onClick={downloadPdf}>📄 Descargar PDF</button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button style={btnPdf} onClick={downloadPdf}>📄 Descargar PDF</button>
+            <button style={btnPrintPdf} onClick={printPdf}>🖨️ Imprimir</button>
+            <button style={btnPrintPdf} onClick={printPdfVertical}>🖨️ Imprimir vertical</button>
+          </div>
         )}
       </div>
 
@@ -192,6 +191,10 @@ export function RemissionForm() {
             <div style={field}>
               <label style={labelStyle}>Vendedor</label>
               <input style={input} type="text" value={salesPerson} onChange={e => setSalesPerson(e.target.value)} placeholder="Nombre del vendedor" maxLength={200} />
+            </div>
+            <div style={field}>
+              <label style={labelStyle}>Orden de compra</label>
+              <input style={input} type="text" value={purchaseOrder} onChange={e => setPurchaseOrder(e.target.value)} placeholder="Orden de compra (opcional)" maxLength={200} />
             </div>
           </div>
 
@@ -216,15 +219,6 @@ export function RemissionForm() {
               <DateField value={returnDueDate} onChange={setReturnDueDate} required />
             </div>
           </div>
-
-          {isEdit && (
-            <div style={{ marginTop: 12 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', cursor: 'pointer' }}>
-                <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
-                Activo
-              </label>
-            </div>
-          )}
         </div>
 
         {/* ── Productos ── */}
@@ -252,7 +246,7 @@ export function RemissionForm() {
                         <input style={inputSmall} type="text" value={d.teacher} onChange={e => updateRow(i, 'teacher', e.target.value)} maxLength={200} placeholder="Maestro" />
                       </td>
                       <td style={td}>
-                        <input style={{ ...inputSmall, backgroundColor: '#f9f9f9' }} value={d.publisherName} readOnly placeholder="(auto)" />
+                        <input style={{ ...inputSmall, backgroundColor: '#f9f9f9' }} value={d.supplierName} readOnly placeholder="(auto)" />
                       </td>
                       <td style={td}>
                         <select style={inputSmall} value={d.productId} onChange={e => updateRow(i, 'productId', e.target.value)} required>
@@ -287,8 +281,7 @@ export function RemissionForm() {
             <div style={totalRow}>
               <span style={totalLabel}>Descuento:</span>
               <div style={{ position: 'relative', width: 100 }}>
-                <input style={{ ...inputSmall, textAlign: 'right', paddingRight: '1.5rem' }} type="number" value={discountPercentage} onChange={e => setDiscountPercentage(e.target.value)} min="0" max="100" step="0.01" />
-                <span style={{ ...pctSuffix, right: 6 }}>%</span>
+                <input style={{ ...inputSmall, textAlign: 'right' }} type="number" value={discount} onChange={e => setDiscount(e.target.value)} min="0" step="0.01" placeholder="0.00" />
               </div>
               <span style={{ ...totalValue, color: '#c0392b' }}>-${discountAmount.toFixed(2)}</span>
             </div>
@@ -342,3 +335,4 @@ const btnSecondary: React.CSSProperties = { padding: '0.6rem 1.5rem', background
 const btnAdd: React.CSSProperties = { marginTop: 8, padding: '0.35rem 0.75rem', backgroundColor: '#f0f0f0', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }
 const btnRemove: React.CSSProperties = { padding: '0.2rem 0.4rem', backgroundColor: '#c0392b', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.75rem' }
 const btnPdf: React.CSSProperties = { padding: '0.5rem 1rem', backgroundColor: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem' }
+const btnPrintPdf: React.CSSProperties = { padding: '0.5rem 1rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem' }

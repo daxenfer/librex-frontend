@@ -4,7 +4,7 @@ export interface ReturnNoteDetailDto {
   id: number
   productId: number
   productName: string
-  publisherName?: string
+  supplierName?: string
   quantity: number
   unitPrice: number
   amount: number

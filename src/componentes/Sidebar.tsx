@@ -18,7 +18,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Catálogos',
     items: [
-      { path: '/publishers', label: 'Editoriales', icon: '🏢' },
+      { path: '/suppliers', label: 'Proveedores', icon: '🏢' },
       { path: '/products',   label: 'Productos',   icon: '📦' },
       { path: '/customers',  label: 'Clientes',    icon: '👥' },
     ],
@@ -26,9 +26,9 @@ const navGroups: NavGroup[] = [
   {
     label: 'Operaciones',
     items: [
-      { path: '/remissions', label: 'Remisiones',   icon: '📄' },
-      { path: '/returns',    label: 'Devoluciones', icon: '↩️' },
-      { path: '/payments',   label: 'Pagos',        icon: '💳' },
+      { path: '/remissions',  label: 'Remisiones',         icon: '📄' },
+      { path: '/returns',     label: 'Devoluciones',       icon: '↩️' },
+      { path: '/payments',    label: 'Pagos',              icon: '💳' },
     ],
   },
   {

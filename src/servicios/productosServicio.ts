@@ -3,19 +3,22 @@ import api from './apiCliente'
 export interface ProductDto {
   id: number
   name: string
-  publisherId: number
-  publisherName: string
+  isbn?: string
+  supplierId: number
+  supplierName: string
   isActive: boolean
 }
 
 export interface CreateProductDto {
   name: string
-  publisherId: number
+  isbn?: string
+  supplierId: number
 }
 
 export interface UpdateProductDto {
   name: string
-  publisherId: number
+  isbn?: string
+  supplierId: number
   isActive: boolean
 }
 

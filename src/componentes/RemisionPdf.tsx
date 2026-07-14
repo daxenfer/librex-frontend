@@ -25,6 +25,7 @@ const s = StyleSheet.create({
   metaGrid:    { flexDirection: 'column', gap: 4 },
   metaRow:     { flexDirection: 'row', gap: 4 },
   metaBox:     { borderWidth: 1, borderColor: BLUE, width: 114 },
+  metaBoxWide: { borderWidth: 1, borderColor: BLUE, width: 350 },
   metaHead:    { backgroundColor: BLUE, paddingVertical: 2, paddingHorizontal: 2, minHeight: 18, justifyContent: 'center' },
   metaHeadText:{ fontSize: 5.6, color: '#fff', fontFamily: 'Helvetica-Bold', letterSpacing: 0.4, textAlign: 'center' },
   metaBody:    { paddingVertical: 3, paddingHorizontal: 4, minHeight: 20, justifyContent: 'center' },
@@ -90,9 +91,11 @@ const MIN_ROWS = 12
 interface Props {
   remission: RemissionDto
   settings: CompanySettingsDto
+  isbnByProductId?: Record<number, string>
+  orientation?: 'landscape' | 'portrait'
 }
 
-export function RemisionPdf({ remission, settings }: Props) {
+export function RemisionPdf({ remission, settings, isbnByProductId = {}, orientation = 'landscape' }: Props) {
   const emptyRows = Math.max(0, MIN_ROWS - remission.details.length)
 
   const logo = settings.logoBase64 || ''
@@ -101,7 +104,7 @@ export function RemisionPdf({ remission, settings }: Props) {
 
   return (
     <Document>
-      <Page size="LETTER" orientation="landscape" style={s.page}>
+      <Page size="LETTER" orientation={orientation} style={s.page}>
 
         {/* ── HEADER ── */}
         <View style={s.header}>
@@ -154,6 +157,15 @@ export function RemisionPdf({ remission, settings }: Props) {
                 <View style={s.metaBody}><Text style={s.metaValue}>{fmtDate(remission.returnDueDate)}</Text></View>
               </View>
             </View>
+            {/* Row 3 (optional): ORDEN DE COMPRA */}
+            {remission.purchaseOrder ? (
+              <View style={s.metaRow}>
+                <View style={s.metaBoxWide}>
+                  <View style={s.metaHead}><Text style={s.metaHeadText}>ORDEN DE COMPRA</Text></View>
+                  <View style={s.metaBody}><Text style={s.metaValue}>{remission.purchaseOrder}</Text></View>
+                </View>
+              </View>
+            ) : null}
           </View>
         </View>
 
@@ -188,7 +200,7 @@ export function RemisionPdf({ remission, settings }: Props) {
         {logo ? <Image src={logo} style={s.watermark} /> : null}
         <View style={s.table}>
           <View style={s.thead}>
-            <Text style={[s.th, s.cMa]}>MAESTRO</Text>
+            <Text style={[s.th, s.cMa]}>ISBN</Text>
             <Text style={[s.th, s.cEd]}>EDITORIAL</Text>
             <Text style={[s.th, s.cTi]}>TÍTULO</Text>
             <Text style={[s.th, s.cQt]}>CANTIDAD</Text>
@@ -197,8 +209,8 @@ export function RemisionPdf({ remission, settings }: Props) {
           </View>
           {remission.details.map((d, i) => (
             <View key={i} style={s.tr}>
-              <Text style={[s.td, s.cMa]}>{d.teacher ?? ''}</Text>
-              <Text style={[s.td, s.cEd]}>{d.publisherName ?? ''}</Text>
+              <Text style={[s.td, s.cMa]}>{isbnByProductId[d.productId] ?? ''}</Text>
+              <Text style={[s.td, s.cEd]}>{d.supplierName ?? ''}</Text>
               <Text style={[s.td, s.cTi]}>{d.productName}</Text>
               <Text style={[s.td, s.cQt]}>{d.quantity}</Text>
               <Text style={[s.td, s.cPu]}>{fmt(d.unitPrice)}</Text>
@@ -243,7 +255,7 @@ export function RemisionPdf({ remission, settings }: Props) {
               <Text style={s.tValue}>{fmt(remission.subtotal)}</Text>
             </View>
             <View style={s.totalRow}>
-              <Text style={s.tLabel}>DESCUENTO {remission.discountPercentage > 0 ? `${remission.discountPercentage}%` : ''}</Text>
+              <Text style={s.tLabel}>DESCUENTO</Text>
               <Text style={s.tValue}>{fmt(remission.discountAmount)}</Text>
             </View>
             <View style={s.totalRow}>

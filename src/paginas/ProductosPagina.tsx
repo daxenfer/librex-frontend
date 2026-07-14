@@ -9,6 +9,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table'
+import { BsPencilSquare, BsTrash } from 'react-icons/bs'
 import { productService, type ProductDto, type CreateProductDto, type UpdateProductDto } from '../servicios/productosServicio'
 import { ProductForm } from '../componentes/ProductoFormulario'
 import { exportToExcel } from '../utils/exportarExcel'
@@ -36,8 +37,8 @@ export function ProductsPage() {
     exportToExcel(
       products.map(p => ({
         'Nombre': p.name,
-        'Editorial': p.publisherName ?? '',
-        'Estado': p.isActive ? 'Activo' : 'Inactivo',
+        'ISBN': p.isbn ?? '',
+        'Proveedor': p.supplierName ?? '',
       })),
       'productos'
     )
@@ -66,25 +67,14 @@ export function ProductsPage() {
       header: 'Nombre',
     },
     {
-      accessorKey: 'publisherName',
-      header: 'Editorial',
+      accessorKey: 'isbn',
+      header: 'ISBN',
       cell: info => info.getValue() ?? '—',
     },
     {
-      accessorKey: 'isActive',
-      header: 'Estado',
-      cell: info => (
-        <span style={{
-          padding: '0.2rem 0.6rem',
-          borderRadius: '12px',
-          fontSize: '0.8rem',
-          fontWeight: 600,
-          backgroundColor: info.getValue() ? '#d4edda' : '#f8d7da',
-          color: info.getValue() ? '#155724' : '#721c24',
-        }}>
-          {info.getValue() ? 'Activo' : 'Inactivo'}
-        </span>
-      ),
+      accessorKey: 'supplierName',
+      header: 'Proveedor',
+      cell: info => info.getValue() ?? '—',
     },
     {
       id: 'acciones',
@@ -92,8 +82,8 @@ export function ProductsPage() {
       enableSorting: false,
       cell: ({ row }) => (
         <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button style={btnEdit} onClick={() => openEdit(row.original)}>Editar</button>
-          <button style={btnDelete} onClick={() => remove(row.original.id)}>Eliminar</button>
+          <button style={btnEdit} title="Editar" onClick={() => openEdit(row.original)}><BsPencilSquare size={15} /></button>
+          <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>
         </div>
       ),
     },
@@ -215,7 +205,8 @@ const thStyle: React.CSSProperties = { padding: '0.75rem 1rem', textAlign: 'left
 const tdStyle: React.CSSProperties = { padding: '0.65rem 1rem', fontSize: '0.9rem' }
 const searchInput: React.CSSProperties = { padding: '0.5rem 0.75rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.95rem', minWidth: '220px', flex: 1, maxWidth: '360px' }
 const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }
-const btnEdit: React.CSSProperties = { padding: '0.3rem 0.75rem', backgroundColor: '#2980b9', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' }
-const btnDelete: React.CSSProperties = { padding: '0.3rem 0.75rem', backgroundColor: '#c0392b', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' }
+const iconBtn = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.35rem 0.5rem', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' } as const
+const btnEdit: React.CSSProperties = { ...iconBtn, backgroundColor: '#2980b9', color: '#fff', border: 'none' }
+const btnDelete: React.CSSProperties = { ...iconBtn, backgroundColor: '#c0392b', color: '#fff', border: 'none' }
 const btnPage: React.CSSProperties = { padding: '0.35rem 0.75rem', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }
 const btnExcel: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }

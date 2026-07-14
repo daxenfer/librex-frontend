@@ -9,9 +9,9 @@ export interface CustomerReportRow {
   balance: number
 }
 
-export interface PublisherReport {
-  publisherId: number | null
-  publisherName: string
+export interface SupplierReport {
+  supplierId: number | null
+  supplierName: string
   customers: CustomerReportRow[]
   totals: CustomerReportRow
 }
@@ -29,8 +29,8 @@ export interface CustomerProductRow {
 }
 
 export interface SalesByProductReport {
-  publisherId: number | null
-  publisherName: string
+  supplierId: number | null
+  supplierName: string
   products: ProductColumn[]
   rows: CustomerProductRow[]
   productTotals: number[]
@@ -38,13 +38,13 @@ export interface SalesByProductReport {
 }
 
 export const reportService = {
-  getByPublisher: async (publisherId?: number): Promise<PublisherReport> => {
-    const params = publisherId ? `?publisherId=${publisherId}` : ''
-    const { data } = await api.get<PublisherReport>(`/api/reports/by-publisher${params}`)
+  getBySupplier: async (supplierId?: number): Promise<SupplierReport> => {
+    const params = supplierId ? `?supplierId=${supplierId}` : ''
+    const { data } = await api.get<SupplierReport>(`/api/reports/by-supplier${params}`)
     return data
   },
-  getSalesByProduct: async (publisherId?: number): Promise<SalesByProductReport> => {
-    const params = publisherId ? `?publisherId=${publisherId}` : ''
+  getSalesByProduct: async (supplierId?: number): Promise<SalesByProductReport> => {
+    const params = supplierId ? `?supplierId=${supplierId}` : ''
     const { data } = await api.get<SalesByProductReport>(`/api/reports/sales-by-product${params}`)
     return data
   },

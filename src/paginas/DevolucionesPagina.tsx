@@ -5,8 +5,10 @@ import {
   getFilteredRowModel, getPaginationRowModel, flexRender,
   type ColumnDef, type SortingState,
 } from '@tanstack/react-table'
+import { BsPencilSquare, BsTrash, BsFileEarmarkPdf } from 'react-icons/bs'
 import { returnNoteService, type ReturnNoteDto } from '../servicios/devolucionesServicio'
 import { exportToExcel } from '../utils/exportarExcel'
+import { downloadReturnNotePdf } from '../utils/devolucionPdf'
 
 export function ReturnsPage() {
   const navigate = useNavigate()
@@ -64,8 +66,9 @@ export function ReturnsPage() {
       id: 'acciones', header: 'Acciones', enableSorting: false,
       cell: ({ row }) => (
         <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button style={btnEdit} onClick={() => navigate(`/returns/${row.original.id}/edit`)}>Editar</button>
-          <button style={btnDelete} onClick={() => remove(row.original.id)}>Eliminar</button>
+          <button style={btnReceipt} title="Imprimir PDF" onClick={() => downloadReturnNotePdf(row.original)}><BsFileEarmarkPdf size={15} /></button>
+          <button style={btnEdit} title="Editar" onClick={() => navigate(`/returns/${row.original.id}/edit`)}><BsPencilSquare size={15} /></button>
+          <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>
         </div>
       ),
     },
@@ -141,7 +144,9 @@ const thStyle: React.CSSProperties = { padding: '0.75rem 1rem', textAlign: 'left
 const tdStyle: React.CSSProperties = { padding: '0.65rem 1rem', fontSize: '0.9rem' }
 const searchInput: React.CSSProperties = { padding: '0.5rem 0.75rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.95rem', minWidth: '220px', flex: 1, maxWidth: '360px' }
 const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }
-const btnEdit: React.CSSProperties = { padding: '0.3rem 0.75rem', backgroundColor: '#2980b9', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' }
-const btnDelete: React.CSSProperties = { padding: '0.3rem 0.75rem', backgroundColor: '#c0392b', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' }
+const iconBtn = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.35rem 0.5rem', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' } as const
+const btnReceipt: React.CSSProperties = { ...iconBtn, backgroundColor: '#fff', color: '#1a1a2e', border: '1px solid #1a1a2e' }
+const btnEdit: React.CSSProperties = { ...iconBtn, backgroundColor: '#2980b9', color: '#fff', border: 'none' }
+const btnDelete: React.CSSProperties = { ...iconBtn, backgroundColor: '#c0392b', color: '#fff', border: 'none' }
 const btnPage: React.CSSProperties = { padding: '0.35rem 0.75rem', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }
 const btnExcel: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }

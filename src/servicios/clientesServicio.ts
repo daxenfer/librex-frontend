@@ -3,6 +3,7 @@ import api from './apiCliente'
 export interface CustomerDto {
   id: number
   name: string
+  contact?: string
   address: string
   postalCode: string
   phone: string
@@ -12,6 +13,7 @@ export interface CustomerDto {
 
 export interface CreateCustomerDto {
   name: string
+  contact?: string
   address: string
   postalCode: string
   phone: string
@@ -20,6 +22,7 @@ export interface CreateCustomerDto {
 
 export interface UpdateCustomerDto {
   name: string
+  contact?: string
   address: string
   postalCode: string
   phone: string

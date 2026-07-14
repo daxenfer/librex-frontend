@@ -5,15 +5,17 @@ import { customerService, type CustomerDto } from '../servicios/clientesServicio
 import { productService, type ProductDto } from '../servicios/productosServicio'
 import { remissionService, type RemissionDto } from '../servicios/remisionesServicio'
 import { DateField } from '../componentes/DateField'
+import { downloadReturnNotePdf } from '../utils/devolucionPdf'
+import { todayIso, toUtcNoon } from '../utils/dates'
 
 interface DetailRow {
   productId: string
-  publisherName: string
+  supplierName: string
   quantity: string
   unitPrice: string
 }
 
-const emptyRow = (): DetailRow => ({ productId: '', publisherName: '', quantity: '', unitPrice: '' })
+const emptyRow = (): DetailRow => ({ productId: '', supplierName: '', quantity: '', unitPrice: '' })
 
 export function ReturnNoteForm() {
   const navigate = useNavigate()
@@ -22,12 +24,11 @@ export function ReturnNoteForm() {
 
   const [customerId, setCustomerId] = useState('')
   const [remissionId, setRemissionId] = useState<string>('')
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(todayIso())
   const [notes, setNotes] = useState('')
   const [receivedBy, setReceivedBy] = useState('')
   const [discount, setDiscount] = useState('0')
   const [details, setDetails] = useState<DetailRow[]>([emptyRow()])
-  const [isActive, setIsActive] = useState(true)
 
   const [customers, setCustomers] = useState<CustomerDto[]>([])
   const [products, setProducts] = useState<ProductDto[]>([])
@@ -52,11 +53,10 @@ export function ReturnNoteForm() {
       setNotes(r.notes ?? '')
       setReceivedBy(r.receivedBy ?? '')
       setDiscount(String(r.discount))
-      setIsActive(r.isActive)
       setSavedNote(r)
       setDetails(r.details.map(d => ({
         productId: String(d.productId),
-        publisherName: d.publisherName ?? '',
+        supplierName: d.supplierName ?? '',
         quantity: String(d.quantity),
         unitPrice: String(d.unitPrice),
       })))
@@ -78,7 +78,7 @@ export function ReturnNoteForm() {
     if (!r) return
     setDetails(r.details.map(d => ({
       productId: String(d.productId),
-      publisherName: d.publisherName ?? '',
+      supplierName: d.supplierName ?? '',
       quantity: String(d.quantity),
       unitPrice: String(d.unitPrice),
     })))
@@ -90,7 +90,7 @@ export function ReturnNoteForm() {
       next[i] = { ...next[i], [field]: value }
       if (field === 'productId' && value) {
         const p = productMap[Number(value)]
-        if (p) next[i].publisherName = p.publisherName ?? ''
+        if (p) next[i].supplierName = p.supplierName ?? ''
       }
       return next
     })
@@ -122,7 +122,7 @@ export function ReturnNoteForm() {
       const base = {
         customerId: Number(customerId),
         remissionId: Number(remissionId),
-        date: new Date(date).toISOString(),
+        date: toUtcNoon(date),
         notes: notes || undefined,
         receivedBy: receivedBy || undefined,
         discount: discountNum,
@@ -130,7 +130,7 @@ export function ReturnNoteForm() {
       }
       let result: ReturnNoteDto
       if (isEdit) {
-        result = await returnNoteService.update(Number(id), { ...base, isActive })
+        result = await returnNoteService.update(Number(id), { ...base, isActive: true })
       } else {
         result = await returnNoteService.create(base)
       }
@@ -145,17 +145,7 @@ export function ReturnNoteForm() {
 
   const downloadPdf = async () => {
     if (!savedNote) return
-    const [{ pdf }, { DevolucionPdf }] = await Promise.all([
-      import('@react-pdf/renderer'),
-      import('../componentes/DevolucionPdf'),
-    ])
-    const blob = await pdf(<DevolucionPdf returnNote={savedNote} />).toBlob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `devolucion-${savedNote.folioFormatted}.pdf`
-    a.click()
-    URL.revokeObjectURL(url)
+    await downloadReturnNotePdf(savedNote)
   }
 
   if (loading) return <div style={{ padding: '2rem' }}>Cargando...</div>
@@ -207,14 +197,6 @@ export function ReturnNoteForm() {
                 )}
               </div>
             </div>
-            {isEdit && (
-              <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
-                  Activo
-                </label>
-              </div>
-            )}
           </div>
         </div>
 
@@ -224,7 +206,7 @@ export function ReturnNoteForm() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f0f0f0' }}>
-                  <th style={th}>Editorial</th>
+                  <th style={th}>Proveedor</th>
                   <th style={th}>Título *</th>
                   <th style={{ ...th, width: 90 }}>Cantidad *</th>
                   <th style={{ ...th, width: 110 }}>P. Unitario *</th>
@@ -238,7 +220,7 @@ export function ReturnNoteForm() {
                   return (
                     <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
                       <td style={td}>
-                        <input style={{ ...inputSmall, backgroundColor: '#f9f9f9' }} value={d.publisherName} readOnly placeholder="(auto)" />
+                        <input style={{ ...inputSmall, backgroundColor: '#f9f9f9' }} value={d.supplierName} readOnly placeholder="(auto)" />
                       </td>
                       <td style={td}>
                         <select style={inputSmall} value={d.productId} onChange={e => updateRow(i, 'productId', e.target.value)} required>

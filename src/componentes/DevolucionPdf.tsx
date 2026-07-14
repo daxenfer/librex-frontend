@@ -1,119 +1,181 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 import type { ReturnNoteDto } from '../servicios/devolucionesServicio'
+import type { CompanySettingsDto } from '../servicios/settingsServicio'
+import type { CustomerDto } from '../servicios/clientesServicio'
 
-const BLUE = '#003087'
-const BLUE_LIGHT = '#e6edf8'
+const BLUE = '#1A4FA0'
+const GRID = '#aebfdb'
+const RED = '#C42026'
 
 const s = StyleSheet.create({
-  page: { fontFamily: 'Helvetica', fontSize: 8, padding: '18 24 14 24', color: '#111' },
+  page: { fontFamily: 'Helvetica', fontSize: 8, padding: '14 20 12 20', color: '#111' },
 
-  header: { flexDirection: 'row', alignItems: 'stretch', marginBottom: 7, borderBottom: `2.5px solid ${BLUE}`, paddingBottom: 7 },
-  companyBlock: { flex: 1 },
-  companyName: { fontSize: 26, fontFamily: 'Helvetica-Bold', color: BLUE, letterSpacing: 1 },
-  companyTagline: { fontSize: 7, color: '#555', marginTop: 2 },
+  // ── Header ──────────────────────────────────────────────────────────────────
+  header: { flexDirection: 'row', marginBottom: 6, borderBottom: `2px solid ${BLUE}`, paddingBottom: 6 },
 
-  metaStack: { flexDirection: 'row', gap: 5, alignItems: 'stretch' },
-  metaBox: { borderWidth: 1, borderColor: BLUE, padding: '3 7', minWidth: 95, justifyContent: 'space-between' },
-  metaLabel: { fontSize: 6, color: BLUE, fontFamily: 'Helvetica-Bold', marginBottom: 6 },
-  metaValue: { fontSize: 8.5 },
+  // Left: company info
+  companyBlock: { flex: 1, paddingRight: 10 },
+  companyTopRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerLogo: { width: 56, height: 56, objectFit: 'contain' },
+  companyNameWrap: { flex: 1 },
+  companyName: { fontSize: 17, fontFamily: 'Helvetica-Bold', color: BLUE, letterSpacing: 0.3 },
+  companyRfc: { fontSize: 7, color: '#333', marginTop: 1 },
+  companyLine: { fontSize: 6.5, color: '#333', marginTop: 1.5 },
 
-  folioBox: { backgroundColor: BLUE, padding: '5 12', alignItems: 'center', justifyContent: 'center', minWidth: 120 },
-  folioTag: { fontSize: 6.5, color: '#fff', fontFamily: 'Helvetica-Bold', letterSpacing: 1, marginBottom: 3 },
-  folioNum: { fontSize: 18, color: '#fff', fontFamily: 'Helvetica-Bold', letterSpacing: 1 },
+  // Right: 3 boxes with a solid blue header strip
+  metaGrid: { flexDirection: 'column', justifyContent: 'center' },
+  metaRow: { flexDirection: 'row', gap: 4 },
+  metaBox: { borderWidth: 1, borderColor: BLUE, width: 114 },
+  metaHead: { backgroundColor: BLUE, paddingVertical: 2, paddingHorizontal: 2, minHeight: 18, justifyContent: 'center' },
+  metaHeadText: { fontSize: 5.6, color: '#fff', fontFamily: 'Helvetica-Bold', letterSpacing: 0.4, textAlign: 'center' },
+  metaBody: { paddingVertical: 3, paddingHorizontal: 4, minHeight: 20, justifyContent: 'center' },
+  metaValue: { fontSize: 8, textAlign: 'center' },
+  folioValue: { fontSize: 16, color: RED, fontFamily: 'Helvetica-Bold', letterSpacing: 1, textAlign: 'center' },
 
-  clientRow: { flexDirection: 'row', gap: 0, marginBottom: 5 },
+  // ── Client section ───────────────────────────────────────────────────────────
+  clientSection: { marginBottom: 5, borderWidth: 1, borderColor: BLUE, padding: '3 6' },
+  clientLine: { flexDirection: 'row', marginBottom: 2 },
+  clientLabel: { fontSize: 7, fontFamily: 'Helvetica-Bold', color: BLUE, marginRight: 4 },
+  clientValue: { fontSize: 7, flex: 1, borderBottomWidth: 0.75, borderBottomColor: '#aaa', paddingBottom: 1 },
+  clientInline: { flexDirection: 'row', gap: 10 },
+  clientField: { flexDirection: 'row', alignItems: 'flex-end' },
+  clientShortVal: { fontSize: 7, borderBottomWidth: 0.75, borderBottomColor: '#aaa', paddingBottom: 1, minWidth: 60, marginLeft: 3 },
+  clientCityVal: { fontSize: 7, borderBottomWidth: 0.75, borderBottomColor: '#aaa', paddingBottom: 1, flex: 1, marginLeft: 3 },
 
-  lf: { flex: 1, flexDirection: 'column', borderWidth: 1, borderColor: BLUE, marginRight: 3 },
-  lfLabel: { backgroundColor: BLUE, paddingVertical: 2, paddingHorizontal: 4, fontSize: 6, color: '#fff', fontFamily: 'Helvetica-Bold' },
-  lfValue: { paddingVertical: 3, paddingHorizontal: 4, fontSize: 8, minHeight: 16 },
-
-  table: { borderWidth: 1.5, borderColor: BLUE, marginBottom: 5 },
+  // ── Table ────────────────────────────────────────────────────────────────────
+  tableWrap: { position: 'relative', marginBottom: 5 },
+  watermark: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, margin: 'auto', width: '95%', height: '92%', objectFit: 'contain', opacity: 0.06 },
+  table: { borderWidth: 1.5, borderColor: BLUE },
   thead: { flexDirection: 'row', backgroundColor: BLUE },
-  th: { paddingVertical: 3, paddingHorizontal: 4, color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 7, borderRightWidth: 0.5, borderRightColor: 'rgba(255,255,255,0.35)' },
-  tr: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#c8d4e8' },
-  trAlt: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#c8d4e8', backgroundColor: BLUE_LIGHT },
-  td: { paddingVertical: 2.5, paddingHorizontal: 4, fontSize: 7.5, borderRightWidth: 0.5, borderRightColor: '#c8d4e8' },
+  th: { paddingVertical: 3.5, paddingHorizontal: 3, color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 6.5, borderRightWidth: 0.5, borderRightColor: 'rgba(255,255,255,0.4)' },
+  tr: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: GRID, minHeight: 16 },
+  td: { paddingVertical: 3, paddingHorizontal: 3, fontSize: 7, borderRightWidth: 0.5, borderRightColor: GRID },
 
-  cEd: { width: '18%' },
+  // Column widths
+  cMa: { width: '12%' },
+  cEd: { width: '17%' },
   cTi: { flex: 1 },
   cQt: { width: '9%', textAlign: 'right' },
   cPu: { width: '11%', textAlign: 'right' },
-  cIm: { width: '11%', textAlign: 'right', borderRightWidth: 0 },
+  cIm: { width: '10%', textAlign: 'right', borderRightWidth: 0 },
 
-  totalsBlock: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 6 },
+  // ── Footer ───────────────────────────────────────────────────────────────────
+  footer: { flexDirection: 'row', gap: 8 },
+  obsBox: { flex: 1, borderWidth: 1, borderColor: BLUE, padding: '3 5', minHeight: 46 },
+  obsLabel: { fontSize: 6, fontFamily: 'Helvetica-Bold', color: BLUE, marginBottom: 3 },
+  obsText: { fontSize: 7 },
+  signBlock: { width: 160, flexDirection: 'column', justifyContent: 'flex-end' },
+  signLine: { borderTopWidth: 1.5, borderTopColor: BLUE, paddingTop: 3, textAlign: 'center', fontSize: 6.5, color: BLUE, fontFamily: 'Helvetica-Bold' },
+  signName: { fontSize: 7, textAlign: 'center', marginBottom: 22 },
+
+  // ── Totals ───────────────────────────────────────────────────────────────────
+  totalsBlock: { width: 165, flexDirection: 'column', justifyContent: 'flex-end' },
   totalRow: { flexDirection: 'row', marginBottom: 2 },
-  tLabel: { backgroundColor: BLUE, color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 7.5, paddingVertical: 3, paddingHorizontal: 8, width: 80, textAlign: 'right' },
-  tValue: { borderWidth: 1, borderColor: BLUE, fontSize: 7.5, paddingVertical: 3, paddingHorizontal: 8, width: 80, textAlign: 'right' },
-  tValueTotal: { borderWidth: 2, borderColor: BLUE, fontSize: 9, fontFamily: 'Helvetica-Bold', color: BLUE, paddingVertical: 3, paddingHorizontal: 8, width: 80, textAlign: 'right' },
-
-  footer: { flexDirection: 'row', alignItems: 'flex-end' },
-  obsBox: { flex: 1, borderWidth: 1, borderColor: BLUE, padding: '4 6', minHeight: 44, marginRight: 20 },
-  obsLabel: { fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: BLUE, marginBottom: 4 },
-  signBlock: { width: 190, alignItems: 'center' },
-  signLine: { borderTopWidth: 1.5, borderTopColor: BLUE, width: '100%', paddingTop: 3, textAlign: 'center', fontSize: 7, color: BLUE, fontFamily: 'Helvetica-Bold' },
+  tLabel: { backgroundColor: BLUE, color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 7, paddingVertical: 2.5, paddingHorizontal: 6, width: 80, textAlign: 'right' },
+  tValue: { borderWidth: 1, borderColor: BLUE, fontSize: 7, paddingVertical: 2.5, paddingHorizontal: 6, width: 85, textAlign: 'right' },
+  tValueTotal: { borderWidth: 2, borderColor: BLUE, fontSize: 9, fontFamily: 'Helvetica-Bold', color: BLUE, paddingVertical: 2.5, paddingHorizontal: 6, width: 85, textAlign: 'right' },
 })
 
 function fmt(n: number) {
   return `$${n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
 }
 
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
 const MIN_ROWS = 12
 
-interface Props { returnNote: ReturnNoteDto }
+interface Props {
+  returnNote: ReturnNoteDto
+  settings: CompanySettingsDto
+  customer?: CustomerDto
+  teacherByProduct?: Record<number, string>
+}
 
-export function DevolucionPdf({ returnNote }: Props) {
-  const dateStr = new Date(returnNote.date)
-    .toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
-
+export function DevolucionPdf({ returnNote, settings, customer, teacherByProduct = {} }: Props) {
   const emptyRows = Math.max(0, MIN_ROWS - returnNote.details.length)
+
+  const logo = settings.logoBase64 || ''
+  const phones = [settings.phone1, settings.phone2].filter(Boolean).join('  |  ')
+  const addressLine = [settings.address, settings.postalCode, settings.city, settings.state].filter(Boolean).join(', ')
 
   return (
     <Document>
       <Page size="LETTER" orientation="landscape" style={s.page}>
 
-        {/* HEADER */}
+        {/* ── HEADER ── */}
         <View style={s.header}>
+          {/* Left: company info */}
           <View style={s.companyBlock}>
-            <Text style={s.companyName}>Librex</Text>
-            <Text style={s.companyTagline}>Distribución de libros</Text>
-          </View>
-          <View style={s.metaStack}>
-            <View style={s.metaBox}>
-              <Text style={s.metaLabel}>FECHA</Text>
-              <Text style={s.metaValue}>{dateStr}</Text>
+            <View style={s.companyTopRow}>
+              {logo ? <Image src={logo} style={s.headerLogo} /> : null}
+              <View style={s.companyNameWrap}>
+                <Text style={s.companyName}>{settings.companyName || settings.brandName}</Text>
+                {settings.rfc ? <Text style={s.companyRfc}>R.F.C. {settings.rfc}</Text> : null}
+              </View>
             </View>
-            <View style={s.folioBox}>
-              <Text style={s.folioTag}>NOTA DE DEVOLUCIÓN</Text>
-              <Text style={s.folioNum}>N° {returnNote.folioFormatted}</Text>
+            {phones ? (
+              <Text style={s.companyLine}>TELS. {phones}{settings.email ? `   E-mail: ${settings.email}` : ''}</Text>
+            ) : settings.email ? (
+              <Text style={s.companyLine}>E-mail: {settings.email}</Text>
+            ) : null}
+            {addressLine ? <Text style={s.companyLine}>{addressLine}</Text> : null}
+          </View>
+
+          {/* Right: FECHA | REMISIÓN VINCULADA | DEVOLUCIÓN */}
+          <View style={s.metaGrid}>
+            <View style={s.metaRow}>
+              <View style={s.metaBox}>
+                <View style={s.metaHead}><Text style={s.metaHeadText}>FECHA</Text></View>
+                <View style={s.metaBody}><Text style={s.metaValue}>{fmtDate(returnNote.date)}</Text></View>
+              </View>
+              <View style={s.metaBox}>
+                <View style={s.metaHead}><Text style={s.metaHeadText}>REMISIÓN VINCULADA</Text></View>
+                <View style={s.metaBody}>
+                  <Text style={s.metaValue}>{returnNote.remissionFolioFormatted ? `N° ${returnNote.remissionFolioFormatted}` : '—'}</Text>
+                </View>
+              </View>
+              <View style={s.metaBox}>
+                <View style={s.metaHead}><Text style={s.metaHeadText}>DEVOLUCIÓN</Text></View>
+                <View style={s.metaBody}><Text style={s.folioValue}>N° {returnNote.folioFormatted}</Text></View>
+              </View>
             </View>
           </View>
         </View>
 
-        {/* CLIENT */}
-        <View style={s.clientRow}>
-          <View style={[s.lf, { flex: 3, marginRight: 3 }]}>
-            <Text style={s.lfLabel}>CLIENTE</Text>
-            <Text style={s.lfValue}>{returnNote.customerName}</Text>
+        {/* ── CLIENT SECTION ── */}
+        <View style={s.clientSection}>
+          <View style={s.clientLine}>
+            <Text style={s.clientLabel}>CLIENTE:</Text>
+            <Text style={s.clientValue}>{returnNote.customerName}</Text>
           </View>
-          <View style={[s.lf, { flex: 1, marginRight: 3 }]}>
-            <Text style={s.lfLabel}>MAESTRO</Text>
-            <Text style={s.lfValue}>{String(returnNote.customerId).padStart(6, '0')}</Text>
+          <View style={s.clientLine}>
+            <Text style={s.clientLabel}>DOMICILIO:</Text>
+            <Text style={s.clientValue}>{customer?.address ?? ''}</Text>
           </View>
-          <View style={[s.lf, { flex: 2, marginRight: 3 }]}>
-            <Text style={s.lfLabel}>REMISIÓN VINCULADA</Text>
-            <Text style={s.lfValue}>
-              {returnNote.remissionFolioFormatted ? `N° ${returnNote.remissionFolioFormatted}` : '—'}
-            </Text>
-          </View>
-          <View style={[s.lf, { flex: 2, marginRight: 0 }]}>
-            <Text style={s.lfLabel}>RECIBIÓ</Text>
-            <Text style={s.lfValue}>{returnNote.receivedBy ?? ''}</Text>
+          <View style={s.clientInline}>
+            <View style={s.clientField}>
+              <Text style={s.clientLabel}>C.P.</Text>
+              <Text style={s.clientShortVal}>{customer?.postalCode ?? ''}</Text>
+            </View>
+            <View style={[s.clientField, { flex: 1 }]}>
+              <Text style={s.clientLabel}>TEL:</Text>
+              <Text style={[s.clientShortVal, { flex: 1 }]}>{customer?.phone ?? ''}</Text>
+            </View>
+            <View style={[s.clientField, { flex: 2 }]}>
+              <Text style={s.clientLabel}>CIUDAD:</Text>
+              <Text style={s.clientCityVal}>{customer?.city ?? ''}</Text>
+            </View>
           </View>
         </View>
 
-        {/* TABLE */}
+        {/* ── TABLE ── */}
+        <View style={s.tableWrap}>
+        {logo ? <Image src={logo} style={s.watermark} /> : null}
         <View style={s.table}>
           <View style={s.thead}>
+            <Text style={[s.th, s.cMa]}>MAESTRO</Text>
             <Text style={[s.th, s.cEd]}>EDITORIAL</Text>
             <Text style={[s.th, s.cTi]}>TÍTULO</Text>
             <Text style={[s.th, s.cQt]}>CANTIDAD</Text>
@@ -121,31 +183,46 @@ export function DevolucionPdf({ returnNote }: Props) {
             <Text style={[s.th, s.cIm]}>IMPORTE</Text>
           </View>
           {returnNote.details.map((d, i) => (
-            <View key={i} style={i % 2 === 0 ? s.tr : s.trAlt}>
-              <Text style={[s.td, s.cEd]}>{d.publisherName ?? ''}</Text>
+            <View key={i} style={s.tr}>
+              <Text style={[s.td, s.cMa]}>{teacherByProduct[d.productId] ?? ''}</Text>
+              <Text style={[s.td, s.cEd]}>{d.supplierName ?? ''}</Text>
               <Text style={[s.td, s.cTi]}>{d.productName}</Text>
               <Text style={[s.td, s.cQt]}>{d.quantity}</Text>
               <Text style={[s.td, s.cPu]}>{fmt(d.unitPrice)}</Text>
               <Text style={[s.td, s.cIm]}>{fmt(d.amount)}</Text>
             </View>
           ))}
-          {Array.from({ length: emptyRows }).map((_, i) => {
-            const idx = returnNote.details.length + i
-            return (
-              <View key={`e${i}`} style={idx % 2 === 0 ? s.tr : s.trAlt}>
-                <Text style={[s.td, s.cEd]}> </Text>
-                <Text style={[s.td, s.cTi]}> </Text>
-                <Text style={[s.td, s.cQt]}> </Text>
-                <Text style={[s.td, s.cPu]}> </Text>
-                <Text style={[s.td, s.cIm]}> </Text>
-              </View>
-            )
-          })}
+          {Array.from({ length: emptyRows }).map((_, i) => (
+            <View key={`e${i}`} style={s.tr}>
+              <Text style={[s.td, s.cMa]}> </Text>
+              <Text style={[s.td, s.cEd]}> </Text>
+              <Text style={[s.td, s.cTi]}> </Text>
+              <Text style={[s.td, s.cQt]}> </Text>
+              <Text style={[s.td, s.cPu]}> </Text>
+              <Text style={[s.td, s.cIm]}> </Text>
+            </View>
+          ))}
+        </View>
         </View>
 
-        {/* TOTALS */}
-        <View style={s.totalsBlock}>
-          <View>
+        {/* ── FOOTER: OBSERVACIONES + FIRMA + TOTALES ── */}
+        <View style={s.footer}>
+          {/* Observaciones */}
+          <View style={s.obsBox}>
+            <Text style={s.obsLabel}>OBSERVACIONES:</Text>
+            <Text style={s.obsText}>{returnNote.notes ?? ''}</Text>
+          </View>
+
+          {/* Firma */}
+          <View style={s.signBlock}>
+            <Text style={s.signName}>{returnNote.receivedBy ?? ''}</Text>
+            <View style={s.signLine}>
+              <Text>NOMBRE Y FIRMA DE RECIBIDO</Text>
+            </View>
+          </View>
+
+          {/* Totales */}
+          <View style={s.totalsBlock}>
             <View style={s.totalRow}>
               <Text style={s.tLabel}>SUB-TOTAL</Text>
               <Text style={s.tValue}>{fmt(returnNote.subtotal)}</Text>
@@ -157,22 +234,6 @@ export function DevolucionPdf({ returnNote }: Props) {
             <View style={s.totalRow}>
               <Text style={s.tLabel}>TOTAL</Text>
               <Text style={s.tValueTotal}>{fmt(returnNote.total)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* FOOTER */}
-        <View style={s.footer}>
-          <View style={s.obsBox}>
-            <Text style={s.obsLabel}>OBSERVACIONES:</Text>
-            <Text style={{ fontSize: 8 }}>{returnNote.notes ?? ''}</Text>
-          </View>
-          <View style={s.signBlock}>
-            <Text style={{ fontSize: 7.5, color: '#333', marginBottom: 28 }}>
-              {returnNote.receivedBy ?? ''}
-            </Text>
-            <View style={s.signLine}>
-              <Text>NOMBRE Y FIRMA DE QUIEN RECIBE</Text>
             </View>
           </View>
         </View>
