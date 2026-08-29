@@ -8,12 +8,14 @@ import {
 import { BsPencilSquare, BsTrash, BsFileEarmarkPdf, BsPrinter } from 'react-icons/bs'
 import { paymentService, type PaymentDto } from '../servicios/pagosServicio'
 import { downloadPaymentPdf, printPaymentPdf } from '../utils/pagoPdf'
+import { ConfirmDeleteModal } from '../componentes/ConfirmarBorradoModal'
 
 export function PaymentsPage() {
   const navigate = useNavigate()
   const [payments, setPayments] = useState<PaymentDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [toDelete, setToDelete] = useState<number | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
@@ -26,10 +28,7 @@ export function PaymentsPage() {
 
   useEffect(() => { load() }, [])
 
-  const remove = async (id: number) => {
-    if (!confirm('¿Eliminar este pago?')) return
-    await paymentService.delete(id); await load()
-  }
+  const remove = (id: number) => setToDelete(id)
 
   const columns = useMemo<ColumnDef<PaymentDto>[]>(() => [
     { accessorKey: 'folioFormatted', header: 'Folio' },
@@ -130,6 +129,16 @@ export function PaymentsPage() {
           </>
         )}
       </div>
+
+      <ConfirmDeleteModal
+        show={toDelete !== null}
+        id={toDelete}
+        title="¿Eliminar este pago?"
+        onImpact={paymentService.getDeletionImpact}
+        onDelete={paymentService.delete}
+        onClose={() => setToDelete(null)}
+        onDeleted={async () => { setToDelete(null); await load() }}
+      />
     </div>
   )
 }

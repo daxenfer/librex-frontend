@@ -1,4 +1,5 @@
 import api from './apiCliente'
+import { fetchDeletionImpact } from './borradoServicio'
 
 export interface ReturnNoteDetailDto {
   id: number
@@ -16,8 +17,8 @@ export interface ReturnNoteDto {
   folioFormatted: string
   customerId: number
   customerName: string
-  remissionId: number
-  remissionFolioFormatted: string
+  remissionId?: number
+  remissionFolioFormatted?: string
   date: string
   notes?: string
   receivedBy?: string
@@ -36,7 +37,8 @@ export interface CreateReturnNoteDetailDto {
 
 export interface CreateReturnNoteDto {
   customerId: number
-  remissionId: number
+  // Opcional: la devolución se captura a nivel cliente y puede ligarse a una remisión después.
+  remissionId?: number
   date: string
   notes?: string
   receivedBy?: string
@@ -65,6 +67,7 @@ export const returnNoteService = {
     const { data } = await api.put<ReturnNoteDto>(`/api/returns/${id}`, dto)
     return data
   },
+  getDeletionImpact: (id: number) => fetchDeletionImpact('returns', id),
   delete: async (id: number): Promise<void> => {
     await api.delete(`/api/returns/${id}`)
   },

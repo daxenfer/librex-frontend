@@ -8,6 +8,7 @@ import { BsPencilSquare, BsTrash } from 'react-icons/bs'
 import { supplierService, type SupplierDto, type CreateSupplierDto, type UpdateSupplierDto } from '../servicios/proveedoresServicio'
 import { SupplierForm } from '../componentes/ProveedorFormulario'
 import { exportToExcel } from '../utils/exportarExcel'
+import { ConfirmDeleteModal } from '../componentes/ConfirmarBorradoModal'
 
 export function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<SupplierDto[]>([])
@@ -15,6 +16,7 @@ export function SuppliersPage() {
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [toDelete, setToDelete] = useState<number | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
@@ -49,10 +51,7 @@ export function SuppliersPage() {
     closeModal(); await load()
   }
 
-  const remove = async (id: number) => {
-    if (!confirm('¿Eliminar esta proveedor?')) return
-    await supplierService.delete(id); await load()
-  }
+  const remove = (id: number) => setToDelete(id)
 
   const columns = useMemo<ColumnDef<SupplierDto>[]>(() => [
     { accessorKey: 'name', header: 'Nombre' },
@@ -132,6 +131,16 @@ export function SuppliersPage() {
         )}
       </div>
       <SupplierForm show={showModal} supplier={selected} onSave={save} onClose={closeModal} />
+
+      <ConfirmDeleteModal
+        show={toDelete !== null}
+        id={toDelete}
+        title="¿Eliminar este proveedor?"
+        onImpact={supplierService.getDeletionImpact}
+        onDelete={supplierService.delete}
+        onClose={() => setToDelete(null)}
+        onDeleted={async () => { setToDelete(null); await load() }}
+      />
     </div>
   )
 }

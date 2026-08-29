@@ -5,16 +5,18 @@ import {
   getFilteredRowModel, getPaginationRowModel, flexRender,
   type ColumnDef, type SortingState,
 } from '@tanstack/react-table'
-import { BsPencilSquare, BsTrash, BsFileEarmarkPdf } from 'react-icons/bs'
+import { BsPencilSquare, BsTrash, BsFileEarmarkPdf, BsPrinter } from 'react-icons/bs'
 import { returnNoteService, type ReturnNoteDto } from '../servicios/devolucionesServicio'
 import { exportToExcel } from '../utils/exportarExcel'
-import { downloadReturnNotePdf } from '../utils/devolucionPdf'
+import { downloadReturnNotePdf, printReturnNotePdf, printReturnNotePdfVertical } from '../utils/devolucionPdf'
+import { ConfirmDeleteModal } from '../componentes/ConfirmarBorradoModal'
 
 export function ReturnsPage() {
   const navigate = useNavigate()
   const [returns, setReturns] = useState<ReturnNoteDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [toDelete, setToDelete] = useState<number | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
@@ -32,7 +34,7 @@ export function ReturnsPage() {
       returns.map(r => ({
         'Folio': r.folioFormatted,
         'Cliente': r.customerName,
-        'Remisión': r.remissionFolioFormatted,
+        'Remisión': r.remissionFolioFormatted ?? '',
         'Fecha': new Date(r.date).toLocaleDateString('es-MX'),
         'Subtotal': r.subtotal,
         'Descuento': r.discount,
@@ -42,10 +44,7 @@ export function ReturnsPage() {
     )
   }
 
-  const remove = async (id: number) => {
-    if (!confirm('¿Eliminar esta devolución?')) return
-    await returnNoteService.delete(id); await load()
-  }
+  const remove = (id: number) => setToDelete(id)
 
   const columns = useMemo<ColumnDef<ReturnNoteDto>[]>(() => [
     { accessorKey: 'folioFormatted', header: 'Folio' },
@@ -56,7 +55,7 @@ export function ReturnsPage() {
     },
     {
       accessorKey: 'remissionFolioFormatted', header: 'Remisión', enableSorting: false,
-      cell: info => `N° ${info.getValue() as string}`,
+      cell: info => info.getValue() ? `N° ${info.getValue() as string}` : '—',
     },
     {
       accessorKey: 'total', header: 'Total',
@@ -66,7 +65,9 @@ export function ReturnsPage() {
       id: 'acciones', header: 'Acciones', enableSorting: false,
       cell: ({ row }) => (
         <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button style={btnReceipt} title="Imprimir PDF" onClick={() => downloadReturnNotePdf(row.original)}><BsFileEarmarkPdf size={15} /></button>
+          <button style={btnReceipt} title="Descargar PDF" onClick={() => downloadReturnNotePdf(row.original)}><BsFileEarmarkPdf size={15} /></button>
+          <button style={btnPrint} title="Imprimir horizontal" onClick={() => printReturnNotePdf(row.original)}><BsPrinter size={15} /></button>
+          <button style={btnPrint} title="Imprimir vertical" onClick={() => printReturnNotePdfVertical(row.original)}><BsPrinter size={15} style={{ transform: 'rotate(90deg)' }} /></button>
           <button style={btnEdit} title="Editar" onClick={() => navigate(`/returns/${row.original.id}/edit`)}><BsPencilSquare size={15} /></button>
           <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>
         </div>
@@ -136,6 +137,16 @@ export function ReturnsPage() {
           </>
         )}
       </div>
+
+      <ConfirmDeleteModal
+        show={toDelete !== null}
+        id={toDelete}
+        title="¿Eliminar esta devolución?"
+        onImpact={returnNoteService.getDeletionImpact}
+        onDelete={returnNoteService.delete}
+        onClose={() => setToDelete(null)}
+        onDeleted={async () => { setToDelete(null); await load() }}
+      />
     </div>
   )
 }
@@ -146,6 +157,7 @@ const searchInput: React.CSSProperties = { padding: '0.5rem 0.75rem', border: '1
 const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }
 const iconBtn = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.35rem 0.5rem', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' } as const
 const btnReceipt: React.CSSProperties = { ...iconBtn, backgroundColor: '#fff', color: '#1a1a2e', border: '1px solid #1a1a2e' }
+const btnPrint: React.CSSProperties = { ...iconBtn, backgroundColor: '#1a1a2e', color: '#fff', border: 'none' }
 const btnEdit: React.CSSProperties = { ...iconBtn, backgroundColor: '#2980b9', color: '#fff', border: 'none' }
 const btnDelete: React.CSSProperties = { ...iconBtn, backgroundColor: '#c0392b', color: '#fff', border: 'none' }
 const btnPage: React.CSSProperties = { padding: '0.35rem 0.75rem', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }

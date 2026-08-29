@@ -24,8 +24,10 @@ export interface ProductColumn {
 export interface CustomerProductRow {
   customerId: number
   customerName: string
-  quantities: number[]
-  totalQuantity: number
+  quantitiesSold: number[]
+  quantitiesReturned: number[]
+  totalSold: number
+  totalReturned: number
 }
 
 export interface SalesByProductReport {
@@ -33,8 +35,23 @@ export interface SalesByProductReport {
   supplierName: string
   products: ProductColumn[]
   rows: CustomerProductRow[]
-  productTotals: number[]
-  grandTotal: number
+  productTotalsSold: number[]
+  productTotalsReturned: number[]
+  grandTotalSold: number
+  grandTotalReturned: number
+}
+
+export interface UnallocatedPaymentRow {
+  customerId: number
+  customerName: string
+  totalPayments: number
+  allocatedAmount: number
+  unallocatedAmount: number
+}
+
+export interface UnallocatedPaymentsReport {
+  rows: UnallocatedPaymentRow[]
+  totalUnallocated: number
 }
 
 export const reportService = {
@@ -46,6 +63,10 @@ export const reportService = {
   getSalesByProduct: async (supplierId?: number): Promise<SalesByProductReport> => {
     const params = supplierId ? `?supplierId=${supplierId}` : ''
     const { data } = await api.get<SalesByProductReport>(`/api/reports/sales-by-product${params}`)
+    return data
+  },
+  getUnallocatedPayments: async (): Promise<UnallocatedPaymentsReport> => {
+    const { data } = await api.get<UnallocatedPaymentsReport>('/api/reports/unallocated-payments')
     return data
   },
 }

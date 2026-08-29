@@ -9,12 +9,14 @@ import { BsPencilSquare, BsTrash, BsFileEarmarkPdf, BsPrinter } from 'react-icon
 import { remissionService, type RemissionDto } from '../servicios/remisionesServicio'
 import { exportToExcel } from '../utils/exportarExcel'
 import { downloadRemissionPdf, printRemissionPdf, printRemissionPdfVertical } from '../utils/remisionPdf'
+import { ConfirmDeleteModal } from '../componentes/ConfirmarBorradoModal'
 
 export function RemissionsPage() {
   const navigate = useNavigate()
   const [remissions, setRemissions] = useState<RemissionDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [toDelete, setToDelete] = useState<number | null>(null)
   const [sorting, setSorting] = useState<SortingState>([{ id: 'folioFormatted', desc: true }])
   const [globalFilter, setGlobalFilter] = useState('')
 
@@ -41,10 +43,7 @@ export function RemissionsPage() {
     )
   }
 
-  const remove = async (id: number) => {
-    if (!confirm('¿Eliminar esta remisión?')) return
-    await remissionService.delete(id); await load()
-  }
+  const remove = (id: number) => setToDelete(id)
 
   const columns = useMemo<ColumnDef<RemissionDto>[]>(() => [
     { accessorKey: 'folioFormatted', header: 'Folio' },
@@ -133,6 +132,16 @@ export function RemissionsPage() {
           </>
         )}
       </div>
+
+      <ConfirmDeleteModal
+        show={toDelete !== null}
+        id={toDelete}
+        title="¿Eliminar esta remisión?"
+        onImpact={remissionService.getDeletionImpact}
+        onDelete={remissionService.delete}
+        onClose={() => setToDelete(null)}
+        onDeleted={async () => { setToDelete(null); await load() }}
+      />
     </div>
   )
 }

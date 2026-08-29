@@ -5,7 +5,8 @@ import { customerService, type CustomerDto } from '../servicios/clientesServicio
 import { productService, type ProductDto } from '../servicios/productosServicio'
 import { remissionService, type RemissionDto } from '../servicios/remisionesServicio'
 import { DateField } from '../componentes/DateField'
-import { downloadReturnNotePdf } from '../utils/devolucionPdf'
+import { ProductPickerModal } from '../componentes/ProductPickerModal'
+import { downloadReturnNotePdf, printReturnNotePdf, printReturnNotePdfVertical } from '../utils/devolucionPdf'
 import { todayIso, toUtcNoon } from '../utils/dates'
 
 interface DetailRow {
@@ -29,6 +30,7 @@ export function ReturnNoteForm() {
   const [receivedBy, setReceivedBy] = useState('')
   const [discount, setDiscount] = useState('0')
   const [details, setDetails] = useState<DetailRow[]>([emptyRow()])
+  const [pickerRow, setPickerRow] = useState<number | null>(null)
 
   const [customers, setCustomers] = useState<CustomerDto[]>([])
   const [products, setProducts] = useState<ProductDto[]>([])
@@ -108,7 +110,6 @@ export function ReturnNoteForm() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!customerId) { setError('Selecciona un cliente.'); return }
-    if (!remissionId) { setError('Selecciona una remisión.'); return }
     if (details.some(d => !d.productId || !d.quantity || !d.unitPrice)) {
       setError('Completa todos los campos de los productos.'); return
     }
@@ -121,7 +122,7 @@ export function ReturnNoteForm() {
       }))
       const base = {
         customerId: Number(customerId),
-        remissionId: Number(remissionId),
+        remissionId: remissionId ? Number(remissionId) : undefined,
         date: toUtcNoon(date),
         notes: notes || undefined,
         receivedBy: receivedBy || undefined,
@@ -148,6 +149,16 @@ export function ReturnNoteForm() {
     await downloadReturnNotePdf(savedNote)
   }
 
+  const printPdf = async () => {
+    if (!savedNote) return
+    await printReturnNotePdf(savedNote)
+  }
+
+  const printPdfVertical = async () => {
+    if (!savedNote) return
+    await printReturnNotePdfVertical(savedNote)
+  }
+
   if (loading) return <div style={{ padding: '2rem' }}>Cargando...</div>
 
   return (
@@ -157,7 +168,11 @@ export function ReturnNoteForm() {
           {isEdit ? `Devolución ${savedNote?.folioFormatted ?? ''}` : 'Nueva devolución'}
         </h4>
         {isEdit && savedNote && (
-          <button style={btnPdf} onClick={downloadPdf}>📄 Descargar PDF</button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button style={btnPdf} onClick={downloadPdf}>📄 Descargar PDF</button>
+            <button style={btnPrintPdf} onClick={printPdf}>🖨️ Imprimir</button>
+            <button style={btnPrintPdf} onClick={printPdfVertical}>🖨️ Imprimir vertical</button>
+          </div>
         )}
       </div>
 
@@ -182,10 +197,10 @@ export function ReturnNoteForm() {
 
           <div style={{ ...row, marginTop: 10 }}>
             <div style={{ ...field, flex: 2 }}>
-              <label style={label}>Remisión *</label>
+              <label style={label}>Remisión (opcional)</label>
               <div style={{ display: 'flex', gap: 8 }}>
-                <select style={{ ...input, flex: 1 }} value={remissionId} onChange={e => setRemissionId(e.target.value)} disabled={!customerId} required>
-                  <option value="" disabled>Seleccionar remisión...</option>
+                <select style={{ ...input, flex: 1 }} value={remissionId} onChange={e => setRemissionId(e.target.value)} disabled={!customerId}>
+                  <option value="">Sin remisión</option>
                   {customerRemissions.map(r => (
                     <option key={r.id} value={r.id}>N° {r.folioFormatted} — {new Date(r.date).toLocaleDateString('es-MX')}</option>
                   ))}
@@ -223,10 +238,13 @@ export function ReturnNoteForm() {
                         <input style={{ ...inputSmall, backgroundColor: '#f9f9f9' }} value={d.supplierName} readOnly placeholder="(auto)" />
                       </td>
                       <td style={td}>
-                        <select style={inputSmall} value={d.productId} onChange={e => updateRow(i, 'productId', e.target.value)} required>
-                          <option value="">Seleccionar...</option>
-                          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
+                        <button
+                          type="button"
+                          style={{ ...pickerBtn, color: d.productId ? '#1a1a2e' : '#999' }}
+                          onClick={() => setPickerRow(i)}
+                        >
+                          {productMap[Number(d.productId)]?.name ?? 'Seleccionar...'}
+                        </button>
                       </td>
                       <td style={td}>
                         <input style={inputSmall} type="number" value={d.quantity} onChange={e => updateRow(i, 'quantity', e.target.value)} min="0.01" step="0.01" required />
@@ -283,6 +301,13 @@ export function ReturnNoteForm() {
           <button type="button" style={btnSecondary} onClick={() => navigate('/returns')}>Cancelar</button>
         </div>
       </form>
+
+      <ProductPickerModal
+        show={pickerRow !== null}
+        products={products}
+        onClose={() => setPickerRow(null)}
+        onSelect={p => { if (pickerRow !== null) updateRow(pickerRow, 'productId', String(p.id)); setPickerRow(null) }}
+      />
     </div>
   )
 }
@@ -302,6 +327,8 @@ const totalValue: React.CSSProperties = { fontSize: '0.9rem', width: 100, textAl
 const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.5rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem' }
 const btnSecondary: React.CSSProperties = { padding: '0.6rem 1.5rem', backgroundColor: '#fff', color: '#333', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem' }
 const btnAdd: React.CSSProperties = { marginTop: 8, padding: '0.35rem 0.75rem', backgroundColor: '#f0f0f0', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }
+const pickerBtn: React.CSSProperties = { padding: '0.3rem 0.4rem', border: '1px solid #ccc', borderRadius: '3px', fontSize: '0.85rem', width: '100%', minWidth: 140, boxSizing: 'border-box', textAlign: 'left', backgroundColor: '#fff', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
 const btnRemove: React.CSSProperties = { padding: '0.2rem 0.4rem', backgroundColor: '#c0392b', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.75rem' }
 const btnPdf: React.CSSProperties = { padding: '0.5rem 1rem', backgroundColor: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem' }
+const btnPrintPdf: React.CSSProperties = { padding: '0.5rem 1rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem' }
 const btnLoad: React.CSSProperties = { padding: '0.45rem 0.8rem', backgroundColor: '#2980b9', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', whiteSpace: 'nowrap' }

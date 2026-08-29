@@ -24,7 +24,24 @@ const s = StyleSheet.create({
   tdTotal: { paddingVertical: 2, paddingHorizontal: 4, fontSize: 7, width: 36, textAlign: 'center', fontFamily: 'Helvetica-Bold' },
   tdBold: { paddingVertical: 2, paddingHorizontal: 4, fontSize: 7, width: 100, fontFamily: 'Helvetica-Bold' },
   tdFootNum: { paddingVertical: 2, paddingHorizontal: 2, fontSize: 7, flex: 1, textAlign: 'center', fontFamily: 'Helvetica-Bold' },
+  cell: { flex: 1, paddingVertical: 2, paddingHorizontal: 2, textAlign: 'center' },
+  cellTotal: { width: 36, paddingVertical: 2, paddingHorizontal: 4, textAlign: 'center' },
+  sold: { fontSize: 7, textAlign: 'center' },
+  soldZero: { fontSize: 7, textAlign: 'center', color: '#888' },
+  soldBold: { fontSize: 7, textAlign: 'center', fontFamily: 'Helvetica-Bold' },
+  returned: { fontSize: 6, textAlign: 'center', color: '#c0392b' },
 })
+
+// Muestra vendido y, si hubo, devuelto (en rojo, con signo menos). No se netean.
+function NumCell({ sold, returned, total, bold }: { sold: number; returned: number; total?: boolean; bold?: boolean }) {
+  const soldStyle = bold || total ? s.soldBold : sold === 0 ? s.soldZero : s.sold
+  return (
+    <View style={total ? s.cellTotal : s.cell}>
+      <Text style={soldStyle}>{sold === 0 && returned === 0 ? '—' : sold}</Text>
+      {returned > 0 && <Text style={s.returned}>−{returned}</Text>}
+    </View>
+  )
+}
 
 interface Props {
   reports: SalesByProductReport[]
@@ -57,18 +74,18 @@ export function CantidadesReportePdf({ reports, filtroProveedor }: Props) {
               {report.rows.map((row, i) => (
                 <View key={row.customerId} style={i % 2 === 0 ? s.tr : s.trAlt}>
                   <Text style={s.tdCustomer}>{row.customerName}</Text>
-                  {row.quantities.map((qty, j) => (
-                    <Text key={j} style={qty === 0 ? s.td : s.tdVal}>{qty === 0 ? '—' : qty}</Text>
+                  {report.products.map((_, j) => (
+                    <NumCell key={j} sold={row.quantitiesSold[j]} returned={row.quantitiesReturned[j]} />
                   ))}
-                  <Text style={s.tdTotal}>{row.totalQuantity}</Text>
+                  <NumCell sold={row.totalSold} returned={row.totalReturned} total />
                 </View>
               ))}
               <View style={s.trFoot}>
                 <Text style={s.tdBold}>TOTALES</Text>
-                {report.productTotals.map((t, i) => (
-                  <Text key={i} style={s.tdFootNum}>{t}</Text>
+                {report.products.map((_, i) => (
+                  <NumCell key={i} sold={report.productTotalsSold[i]} returned={report.productTotalsReturned[i]} bold />
                 ))}
-                <Text style={s.tdTotal}>{report.grandTotal}</Text>
+                <NumCell sold={report.grandTotalSold} returned={report.grandTotalReturned} total />
               </View>
             </View>
           </View>

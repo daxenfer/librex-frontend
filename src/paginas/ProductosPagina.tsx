@@ -13,6 +13,7 @@ import { BsPencilSquare, BsTrash } from 'react-icons/bs'
 import { productService, type ProductDto, type CreateProductDto, type UpdateProductDto } from '../servicios/productosServicio'
 import { ProductForm } from '../componentes/ProductoFormulario'
 import { exportToExcel } from '../utils/exportarExcel'
+import { ConfirmDeleteModal } from '../componentes/ConfirmarBorradoModal'
 
 export function ProductsPage() {
   const [products, setProducts] = useState<ProductDto[]>([])
@@ -20,6 +21,7 @@ export function ProductsPage() {
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [toDelete, setToDelete] = useState<number | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
@@ -38,6 +40,8 @@ export function ProductsPage() {
       products.map(p => ({
         'Nombre': p.name,
         'ISBN': p.isbn ?? '',
+        'Nivel': p.schoolLevel ?? '',
+        'Unidad': p.unitType ?? '',
         'Proveedor': p.supplierName ?? '',
       })),
       'productos'
@@ -55,11 +59,7 @@ export function ProductsPage() {
     await load()
   }
 
-  const remove = async (id: number) => {
-    if (!confirm('¿Eliminar este producto?')) return
-    await productService.delete(id)
-    await load()
-  }
+  const remove = (id: number) => setToDelete(id)
 
   const columns = useMemo<ColumnDef<ProductDto>[]>(() => [
     {
@@ -69,6 +69,16 @@ export function ProductsPage() {
     {
       accessorKey: 'isbn',
       header: 'ISBN',
+      cell: info => info.getValue() ?? '—',
+    },
+    {
+      accessorKey: 'schoolLevel',
+      header: 'Nivel',
+      cell: info => info.getValue() ?? '—',
+    },
+    {
+      accessorKey: 'unitType',
+      header: 'Unidad',
       cell: info => info.getValue() ?? '—',
     },
     {
@@ -196,6 +206,16 @@ export function ProductsPage() {
         product={selected}
         onSave={save}
         onClose={closeModal}
+      />
+
+      <ConfirmDeleteModal
+        show={toDelete !== null}
+        id={toDelete}
+        title="¿Eliminar este producto?"
+        onImpact={productService.getDeletionImpact}
+        onDelete={productService.delete}
+        onClose={() => setToDelete(null)}
+        onDeleted={async () => { setToDelete(null); await load() }}
       />
     </div>
   )

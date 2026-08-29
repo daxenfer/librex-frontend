@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Modal, Button, Form } from 'react-bootstrap'
-import type { ProductDto, CreateProductDto, UpdateProductDto } from '../servicios/productosServicio'
+import { SCHOOL_LEVELS, UNIT_TYPES, type ProductDto, type CreateProductDto, type UpdateProductDto } from '../servicios/productosServicio'
 import { supplierService, type SupplierDto } from '../servicios/proveedoresServicio'
 
 interface Props {
@@ -13,6 +13,8 @@ interface Props {
 export function ProductForm({ show, product, onSave, onClose }: Props) {
   const [name, setName] = useState('')
   const [isbn, setIsbn] = useState('')
+  const [schoolLevel, setSchoolLevel] = useState<string>('')
+  const [unitType, setUnitType] = useState<string>('Unidad')
   const [supplierId, setSupplierId] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [suppliers, setSuppliers] = useState<SupplierDto[]>([])
@@ -25,10 +27,14 @@ export function ProductForm({ show, product, onSave, onClose }: Props) {
     if (product) {
       setName(product.name)
       setIsbn(product.isbn ?? '')
+      setSchoolLevel(product.schoolLevel ?? '')
+      setUnitType(product.unitType ?? 'Unidad')
       setSupplierId(product.supplierId ? String(product.supplierId) : '')
     } else {
       setName('')
       setIsbn('')
+      setSchoolLevel('')
+      setUnitType('Unidad')
       setSupplierId('')
     }
   }, [product, show])
@@ -39,7 +45,10 @@ export function ProductForm({ show, product, onSave, onClose }: Props) {
     try {
       const pid = Number(supplierId)
       const isbnValue = isbn || undefined
-      await onSave(product ? { name, isbn: isbnValue, supplierId: pid, isActive: true } : { name, isbn: isbnValue, supplierId: pid })
+      const levelValue = schoolLevel || undefined
+      await onSave(product
+        ? { name, isbn: isbnValue, schoolLevel: levelValue, unitType, supplierId: pid, isActive: true }
+        : { name, isbn: isbnValue, schoolLevel: levelValue, unitType, supplierId: pid })
     } finally {
       setSaving(false)
     }
@@ -73,6 +82,23 @@ export function ProductForm({ show, product, onSave, onClose }: Props) {
               maxLength={50}
               placeholder="ISBN del producto"
             />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Nivel escolar</Form.Label>
+            <Form.Select value={schoolLevel} onChange={e => setSchoolLevel(e.target.value)}>
+              <option value="">— Sin especificar —</option>
+              {SCHOOL_LEVELS.map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Se maneja por *</Form.Label>
+            <Form.Select value={unitType} onChange={e => setUnitType(e.target.value)} required>
+              {UNIT_TYPES.map(u => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </Form.Select>
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Proveedor *</Form.Label>

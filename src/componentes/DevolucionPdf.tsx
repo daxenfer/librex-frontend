@@ -91,9 +91,10 @@ interface Props {
   settings: CompanySettingsDto
   customer?: CustomerDto
   teacherByProduct?: Record<number, string>
+  orientation?: 'landscape' | 'portrait'
 }
 
-export function DevolucionPdf({ returnNote, settings, customer, teacherByProduct = {} }: Props) {
+export function DevolucionPdf({ returnNote, settings, customer, teacherByProduct = {}, orientation = 'landscape' }: Props) {
   const emptyRows = Math.max(0, MIN_ROWS - returnNote.details.length)
 
   const logo = settings.logoBase64 || ''
@@ -102,7 +103,7 @@ export function DevolucionPdf({ returnNote, settings, customer, teacherByProduct
 
   return (
     <Document>
-      <Page size="LETTER" orientation="landscape" style={s.page}>
+      <Page size="LETTER" orientation={orientation} style={s.page}>
 
         {/* ── HEADER ── */}
         <View style={s.header}>

@@ -4,6 +4,7 @@ import { remissionService, type CreateRemissionDetailDto, type RemissionDto } fr
 import { customerService, type CustomerDto } from '../servicios/clientesServicio'
 import { productService, type ProductDto } from '../servicios/productosServicio'
 import { DateField } from '../componentes/DateField'
+import { ProductPickerModal } from '../componentes/ProductPickerModal'
 import { downloadRemissionPdf, printRemissionPdf, printRemissionPdfVertical } from '../utils/remisionPdf'
 import { todayIso, toUtcNoon } from '../utils/dates'
 
@@ -34,6 +35,7 @@ export function RemissionForm() {
   // Detail table
   const [details, setDetails] = useState<DetailRow[]>([emptyRow()])
   const [discount, setDiscount] = useState('0')
+  const [pickerRow, setPickerRow] = useState<number | null>(null)
 
   // Footer
   const [notes, setNotes] = useState('')
@@ -249,10 +251,13 @@ export function RemissionForm() {
                         <input style={{ ...inputSmall, backgroundColor: '#f9f9f9' }} value={d.supplierName} readOnly placeholder="(auto)" />
                       </td>
                       <td style={td}>
-                        <select style={inputSmall} value={d.productId} onChange={e => updateRow(i, 'productId', e.target.value)} required>
-                          <option value="">Seleccionar...</option>
-                          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
+                        <button
+                          type="button"
+                          style={{ ...pickerBtn, color: d.productId ? '#1a1a2e' : '#999' }}
+                          onClick={() => setPickerRow(i)}
+                        >
+                          {productMap[Number(d.productId)]?.name ?? 'Seleccionar...'}
+                        </button>
                       </td>
                       <td style={td}>
                         <input style={inputSmall} type="number" value={d.quantity} onChange={e => updateRow(i, 'quantity', e.target.value)} min="0.01" step="0.01" required />
@@ -313,6 +318,13 @@ export function RemissionForm() {
           <button type="button" style={btnSecondary} onClick={() => navigate('/remissions')}>Cancelar</button>
         </div>
       </form>
+
+      <ProductPickerModal
+        show={pickerRow !== null}
+        products={products}
+        onClose={() => setPickerRow(null)}
+        onSelect={p => { if (pickerRow !== null) updateRow(pickerRow, 'productId', String(p.id)); setPickerRow(null) }}
+      />
     </div>
   )
 }
@@ -333,6 +345,7 @@ const totalValue: React.CSSProperties = { fontSize: '0.9rem', width: 100, textAl
 const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.5rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem' }
 const btnSecondary: React.CSSProperties = { padding: '0.6rem 1.5rem', backgroundColor: '#fff', color: '#333', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem' }
 const btnAdd: React.CSSProperties = { marginTop: 8, padding: '0.35rem 0.75rem', backgroundColor: '#f0f0f0', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }
+const pickerBtn: React.CSSProperties = { padding: '0.3rem 0.4rem', border: '1px solid #ccc', borderRadius: '3px', fontSize: '0.85rem', width: '100%', minWidth: 140, boxSizing: 'border-box', textAlign: 'left', backgroundColor: '#fff', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
 const btnRemove: React.CSSProperties = { padding: '0.2rem 0.4rem', backgroundColor: '#c0392b', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.75rem' }
 const btnPdf: React.CSSProperties = { padding: '0.5rem 1rem', backgroundColor: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem' }
 const btnPrintPdf: React.CSSProperties = { padding: '0.5rem 1rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem' }

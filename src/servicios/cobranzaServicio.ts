@@ -36,7 +36,7 @@ export interface CustomerReceivable {
   totalOutstanding: number
   overdueOutstanding: number
   openCount: number
-  availableCredit: number // anticipos (pagos recibidos no asignados)
+  availableCredit: number // anticipos (pagos no asignados) + devoluciones sin ligar a remisión
   unappliedPayments: UnappliedPayment[] // pagos con saldo disponible para aplicar
 }
 
@@ -45,33 +45,43 @@ const startOfToday = () => {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
 }
 
-export const receivablesService = {
-  getAll: async (): Promise<CustomerReceivable[]> => {
-    const [remissions, payments, returns] = await Promise.all([
-      remissionService.getAll(),
-      paymentService.getAll(),
-      returnNoteService.getAll(),
-    ])
+// Construye las cuentas por cobrar a partir de las listas ya descargadas.
+// opts.excludePaymentId: ignora las asignaciones de ese pago (para editarlo sin que
+// sus propias asignaciones hagan ver las remisiones como ya liquidadas).
+type BuildOpts = { excludePaymentId?: number }
 
+function buildReceivables(
+  remissions: Awaited<ReturnType<typeof remissionService.getAll>>,
+  payments: Awaited<ReturnType<typeof paymentService.getAll>>,
+  returns: Awaited<ReturnType<typeof returnNoteService.getAll>>,
+  opts: BuildOpts = {},
+): CustomerReceivable[] {
     // Σ asignaciones de pago por remisión.
     const paidByRemission = new Map<number, number>()
     for (const p of payments) {
+      if (opts.excludePaymentId && p.id === opts.excludePaymentId) continue
       for (const a of p.allocations) {
         paidByRemission.set(a.remissionId, (paidByRemission.get(a.remissionId) ?? 0) + a.amount)
       }
     }
 
-    // Σ devoluciones (activas) por remisión.
+    // Σ devoluciones (activas) por remisión. Las que no están ligadas a una remisión
+    // se acumulan como crédito a favor del cliente (misma idea que los anticipos).
     const returnedByRemission = new Map<number, number>()
+    const creditByCustomer = new Map<number, number>()
     for (const r of returns) {
       if (!r.isActive) continue
-      returnedByRemission.set(r.remissionId, (returnedByRemission.get(r.remissionId) ?? 0) + r.total)
+      if (r.remissionId) {
+        returnedByRemission.set(r.remissionId, (returnedByRemission.get(r.remissionId) ?? 0) + r.total)
+      } else {
+        creditByCustomer.set(r.customerId, (creditByCustomer.get(r.customerId) ?? 0) + r.total)
+      }
     }
 
     // Anticipos por cliente (monto recibido no asignado) y lista de pagos con saldo.
-    const creditByCustomer = new Map<number, number>()
     const unappliedByCustomer = new Map<number, UnappliedPayment[]>()
     for (const p of payments) {
+      if (opts.excludePaymentId && p.id === opts.excludePaymentId) continue
       if (!p.isActive || p.unappliedAmount <= EPSILON) continue
       creditByCustomer.set(p.customerId, (creditByCustomer.get(p.customerId) ?? 0) + p.unappliedAmount)
       const list = unappliedByCustomer.get(p.customerId) ?? []
@@ -138,7 +148,8 @@ export const receivablesService = {
     // Clientes con anticipo pero sin remisiones abiertas: también se muestran.
     for (const [customerId, credit] of creditByCustomer) {
       if (credit <= EPSILON || byCustomer.has(customerId)) continue
-      const name = payments.find(p => p.customerId === customerId)?.customerName ?? ''
+      const name = payments.find(p => p.customerId === customerId)?.customerName
+        ?? returns.find(r => r.customerId === customerId)?.customerName ?? ''
       byCustomer.set(customerId, {
         customerId, customerName: name, remissions: [],
         totalInvoiced: 0, totalReturned: 0, totalPaid: 0, totalOutstanding: 0,
@@ -151,5 +162,27 @@ export const receivablesService = {
       // las remisiones, de la más antigua a la más nueva (para aplicar pagos)
       .map(c => ({ ...c, remissions: c.remissions.sort((a, b) => +new Date(a.date) - +new Date(b.date)) }))
       .sort((a, b) => b.totalOutstanding - a.totalOutstanding)
+}
+
+export const receivablesService = {
+  getAll: async (): Promise<CustomerReceivable[]> => {
+    const [remissions, payments, returns] = await Promise.all([
+      remissionService.getAll(),
+      paymentService.getAll(),
+      returnNoteService.getAll(),
+    ])
+    return buildReceivables(remissions, payments, returns)
+  },
+
+  // Cuenta por cobrar de un solo cliente. Descarga las mismas listas (los endpoints no
+  // filtran por cliente) y filtra; se usa en el formulario de pago para el reparto.
+  getByCustomer: async (customerId: number, opts: BuildOpts = {}): Promise<CustomerReceivable | null> => {
+    const [remissions, payments, returns] = await Promise.all([
+      remissionService.getAll(),
+      paymentService.getAll(),
+      returnNoteService.getAll(),
+    ])
+    return buildReceivables(remissions, payments, returns, opts)
+      .find(c => c.customerId === customerId) ?? null
   },
 }

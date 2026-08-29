@@ -1,4 +1,5 @@
 import api from './apiCliente'
+import { fetchDeletionImpact } from './borradoServicio'
 
 export interface SupplierDto {
   id: number
@@ -41,6 +42,7 @@ export const supplierService = {
     const { data } = await api.put<SupplierDto>(`/api/suppliers/${id}`, dto)
     return data
   },
+  getDeletionImpact: (id: number) => fetchDeletionImpact('suppliers', id),
   delete: async (id: number): Promise<void> => {
     await api.delete(`/api/suppliers/${id}`)
   },

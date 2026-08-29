@@ -1,7 +1,9 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { paymentService, PAYMENT_METHODS, type PaymentDto, type CreatePaymentAllocationDto } from '../servicios/pagosServicio'
+import { paymentService, PAYMENT_METHODS, type PaymentDto } from '../servicios/pagosServicio'
 import { customerService, type CustomerDto } from '../servicios/clientesServicio'
+import { receivablesService, type CustomerReceivable } from '../servicios/cobranzaServicio'
+import { AllocationEditor, summarizeAllocation, round2 } from '../componentes/AllocationEditor'
 import { DateField } from '../componentes/DateField'
 import { downloadPaymentPdf, printPaymentPdf } from '../utils/pagoPdf'
 import { todayIso, toUtcNoon } from '../utils/dates'
@@ -22,9 +24,12 @@ export function PaymentForm() {
   const [collectedBy, setCollectedBy] = useState('')
   const [city, setCity] = useState('')
   const [notes, setNotes] = useState('')
-  // Asignaciones a remisiones hechas en Cuentas por Cobrar. Este formulario no las edita,
-  // pero debe reenviarlas en el update para no borrarlas (PUT reemplaza la colección).
-  const [allocations, setAllocations] = useState<CreatePaymentAllocationDto[]>([])
+
+  // Reparto opcional del pago entre las remisiones con saldo del cliente.
+  // alloc: remissionId -> texto del input. Si queda vacío, el pago es un anticipo.
+  const [receivable, setReceivable] = useState<CustomerReceivable | null>(null)
+  const [alloc, setAlloc] = useState<Record<number, string>>({})
+  const [loadingReceivable, setLoadingReceivable] = useState(false)
 
   const [customers, setCustomers] = useState<CustomerDto[]>([])
   const [saving, setSaving] = useState(false)
@@ -33,14 +38,7 @@ export function PaymentForm() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    customerService.getAll().then(list => {
-      setCustomers(list)
-      // Prellenar la ciudad con la del cliente preseleccionado (p.ej. al venir de CxC).
-      if (!isEdit && customerId) {
-        const c = list.find(x => String(x.id) === customerId)
-        if (c?.city) setCity(prev => prev || c.city)
-      }
-    }).catch(() => {})
+    customerService.getAll().then(setCustomers).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -56,18 +54,42 @@ export function PaymentForm() {
       setCollectedBy(p.collectedBy ?? '')
       setCity(p.city ?? '')
       setNotes(p.notes ?? '')
-      setAllocations(p.allocations.map(a => ({ remissionId: a.remissionId, amount: a.amount })))
+      setAlloc(Object.fromEntries(p.allocations.map(a => [a.remissionId, String(a.amount)])))
       setSavedPayment(p)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
 
+  // Carga las remisiones con saldo del cliente para el reparto. En edición se excluye
+  // este pago para que sus propias asignaciones no hagan ver las remisiones liquidadas.
+  useEffect(() => {
+    if (!customerId) { setReceivable(null); return }
+    const cid = Number(customerId)
+    let cancelled = false
+    setLoadingReceivable(true)
+    receivablesService.getByCustomer(cid, isEdit ? { excludePaymentId: Number(id) } : undefined)
+      .then(r => { if (!cancelled) setReceivable(r) })
+      .catch(() => { if (!cancelled) setReceivable(null) })
+      .finally(() => { if (!cancelled) setLoadingReceivable(false) })
+    return () => { cancelled = true }
+  }, [customerId, id, isEdit])
+
+  const remissions = receivable?.remissions ?? []
+  const available = parseFloat(amount) || 0
+  const { overAssigned, anyRowOver } = summarizeAllocation(remissions, alloc, available)
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!customerId) { setError('Selecciona un cliente.'); return }
     if (!amount || parseFloat(amount) <= 0) { setError('El monto debe ser mayor a cero.'); return }
+    if (overAssigned) { setError('Lo aplicado a remisiones supera el monto del pago.'); return }
+    if (anyRowOver) { setError('Una aplicación supera el saldo de su remisión.'); return }
     setSaving(true); setError(null)
     try {
+      // Solo las filas con monto > 0. Si no hay ninguna, el pago queda como anticipo.
+      const allocations = remissions
+        .map(r => ({ remissionId: r.remissionId, amount: round2(parseFloat(alloc[r.remissionId]) || 0) }))
+        .filter(a => a.amount > 0)
       const base = {
         customerId: Number(customerId),
         date: toUtcNoon(date),
@@ -79,7 +101,7 @@ export function PaymentForm() {
         collectedBy: collectedBy || undefined,
         city: city || undefined,
         notes: notes || undefined,
-        allocations, // [] al crear; en edición conserva lo asignado en Cuentas por Cobrar
+        allocations,
       }
       if (isEdit) {
         await paymentService.update(Number(id), { ...base, isActive: true })
@@ -94,13 +116,9 @@ export function PaymentForm() {
     }
   }
 
-  // Al cambiar de cliente, prellenar la ciudad si está vacía o traía la del cliente anterior
-  // (no pisa lo que el usuario haya escrito a mano).
   const handleCustomerChange = (value: string) => {
-    const prev = customers.find(c => String(c.id) === customerId)
-    const next = customers.find(c => String(c.id) === value)
+    if (value !== customerId) setAlloc({}) // el reparto es de otro cliente; se descarta
     setCustomerId(value)
-    if (next?.city && (!city || city === prev?.city)) setCity(next.city)
   }
 
   const downloadPdf = () => { if (savedPayment) downloadPaymentPdf(savedPayment) }
@@ -177,6 +195,32 @@ export function PaymentForm() {
             </div>
           </div>
         </div>
+
+        {customerId && (
+          <div style={{ ...card, marginTop: 12 }}>
+            <h6 style={sectionTitle}>Aplicar a remisiones (opcional)</h6>
+            {loadingReceivable ? (
+              <p style={{ color: '#888', fontSize: '0.9rem', margin: 0 }}>Cargando remisiones...</p>
+            ) : remissions.length === 0 ? (
+              <p style={{ color: '#888', fontSize: '0.9rem', margin: 0 }}>
+                Este cliente no tiene remisiones con saldo pendiente. El pago quedará como anticipo.
+              </p>
+            ) : (
+              <>
+                <p style={{ color: '#555', fontSize: '0.85rem', marginTop: 0, marginBottom: 10 }}>
+                  Reparte el monto entre las remisiones pendientes. Lo no asignado queda como anticipo a favor del cliente.
+                </p>
+                <AllocationEditor
+                  remissions={remissions}
+                  available={available}
+                  value={alloc}
+                  onChange={setAlloc}
+                  showDistributeButton
+                />
+              </>
+            )}
+          </div>
+        )}
 
         <div style={{ ...card, marginTop: 12 }}>
           <h6 style={sectionTitle}>Concepto</h6>

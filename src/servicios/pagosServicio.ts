@@ -1,4 +1,5 @@
 import api from './apiCliente'
+import { fetchDeletionImpact } from './borradoServicio'
 
 export const PAYMENT_METHODS = ['Efectivo', 'Cheque', 'Depósito', 'A cargo del Banco'] as const
 export type PaymentMethod = typeof PAYMENT_METHODS[number]
@@ -72,6 +73,7 @@ export const paymentService = {
     const { data } = await api.put<PaymentDto>(`/api/payments/${id}`, dto)
     return data
   },
+  getDeletionImpact: (id: number) => fetchDeletionImpact('payments', id),
   delete: async (id: number): Promise<void> => {
     await api.delete(`/api/payments/${id}`)
   },

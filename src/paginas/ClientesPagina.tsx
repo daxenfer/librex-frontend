@@ -13,6 +13,7 @@ import { BsPencilSquare, BsTrash } from 'react-icons/bs'
 import { customerService, type CustomerDto, type CreateCustomerDto, type UpdateCustomerDto } from '../servicios/clientesServicio'
 import { CustomerForm } from '../componentes/ClienteFormulario'
 import { exportToExcel } from '../utils/exportarExcel'
+import { ConfirmDeleteModal } from '../componentes/ConfirmarBorradoModal'
 
 export function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerDto[]>([])
@@ -20,6 +21,7 @@ export function CustomersPage() {
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [toDelete, setToDelete] = useState<number | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
@@ -58,11 +60,7 @@ export function CustomersPage() {
     await load()
   }
 
-  const remove = async (id: number) => {
-    if (!confirm('¿Eliminar este cliente?')) return
-    await customerService.delete(id)
-    await load()
-  }
+  const remove = (id: number) => setToDelete(id)
 
   const columns = useMemo<ColumnDef<CustomerDto>[]>(() => [
     {
@@ -192,6 +190,16 @@ export function CustomersPage() {
         customer={selected}
         onSave={save}
         onClose={closeModal}
+      />
+
+      <ConfirmDeleteModal
+        show={toDelete !== null}
+        id={toDelete}
+        title="¿Eliminar este cliente?"
+        onImpact={customerService.getDeletionImpact}
+        onDelete={customerService.delete}
+        onClose={() => setToDelete(null)}
+        onDeleted={async () => { setToDelete(null); await load() }}
       />
     </div>
   )

@@ -1,4 +1,5 @@
 import api from './apiCliente'
+import { fetchDeletionImpact } from './borradoServicio'
 
 export interface CustomerDto {
   id: number
@@ -47,6 +48,7 @@ export const customerService = {
     const { data } = await api.put<CustomerDto>(`/api/customers/${id}`, dto)
     return data
   },
+  getDeletionImpact: (id: number) => fetchDeletionImpact('customers', id),
   delete: async (id: number): Promise<void> => {
     await api.delete(`/api/customers/${id}`)
   },

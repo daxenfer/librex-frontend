@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   reportService,
   type CustomerReportRow, type SupplierReport,
-  type SalesByProductReport,
+  type SalesByProductReport, type UnallocatedPaymentsReport,
 } from '../servicios/reportesServicio'
 import { supplierService, type SupplierDto } from '../servicios/proveedoresServicio'
 import { exportToExcel } from '../utils/exportarExcel'
@@ -58,6 +58,7 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
 function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('')
   const [reports, setReports] = useState<SupplierReport[]>([])
+  const [unallocated, setUnallocated] = useState<UnallocatedPaymentsReport | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -66,16 +67,18 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
   const load = async (pid: string) => {
     setLoading(true); setError(null)
     try {
+      const unallocatedPromise = reportService.getUnallocatedPayments()
       if (pid) {
         const r = await reportService.getBySupplier(Number(pid))
         setReports([r])
-        setExpanded(new Set([String(r.supplierId ?? 'all')]))
+        setExpanded(new Set([String(r.supplierId ?? 'all'), 'unallocated']))
       } else {
         const results = await Promise.all(suppliers.map(p => reportService.getBySupplier(p.id)))
         const filtered = results.filter(r => r.customers.length > 0)
         setReports(filtered)
-        setExpanded(new Set(filtered.map(r => String(r.supplierId ?? 'all'))))
+        setExpanded(new Set([...filtered.map(r => String(r.supplierId ?? 'all')), 'unallocated']))
       }
+      setUnallocated(await unallocatedPromise)
     } catch {
       setError('No se pudo generar el reporte.')
     } finally {
@@ -100,7 +103,9 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
   }
 
   const downloadExcel = () => {
-    const rows = reports.flatMap(report => [
+    // La hoja junta dos secciones con columnas distintas (saldos y pagos sin asignar),
+    // así que las filas son heterogéneas a propósito.
+    const rows: Record<string, unknown>[] = reports.flatMap(report => [
       ...report.customers.map(row => ({
         'Proveedor': report.supplierName,
         'Cliente': row.customerName,
@@ -118,6 +123,22 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
         'Saldo': report.totals.balance,
       },
     ])
+    if (unallocated && unallocated.rows.length > 0) {
+      rows.push(
+        ...unallocated.rows.map(row => ({
+          'Proveedor': 'PAGOS SIN ASIGNAR',
+          'Cliente': row.customerName,
+          'Pagos totales': row.totalPayments,
+          'Aplicado': row.allocatedAmount,
+          'Sin asignar': row.unallocatedAmount,
+        })),
+        {
+          'Proveedor': 'PAGOS SIN ASIGNAR',
+          'Cliente': 'TOTAL SIN ASIGNAR',
+          'Sin asignar': unallocated.totalUnallocated,
+        },
+      )
+    }
     exportToExcel(rows, 'saldos-por-cliente')
   }
 
@@ -130,7 +151,7 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
         import('../componentes/SaldosReportePdf'),
       ])
       const blob = await pdf(
-        <SaldosReportePdf reports={reports} filtroProveedor={supplierName} />
+        <SaldosReportePdf reports={reports} filtroProveedor={supplierName} unallocated={unallocated ?? undefined} />
       ).toBlob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -215,6 +236,60 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
             </div>
           )
         })}
+
+        {unallocated && unallocated.rows.length > 0 && (() => {
+          const open = expanded.has('unallocated')
+          return (
+            <div style={accordionWrapper}>
+              <button style={accordionHeader} onClick={() => toggle('unallocated')}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#999', transition: 'transform 0.2s', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                  <span style={{ fontWeight: 700, color: '#1a1a2e', fontSize: '0.95rem' }}>Pagos sin asignar (anticipos)</span>
+                  <span style={{ fontSize: '0.8rem', color: '#888' }}>{unallocated.rows.length} cliente{unallocated.rows.length !== 1 ? 's' : ''}</span>
+                </span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#e67e22' }}>{fmt(unallocated.totalUnallocated)}</span>
+              </button>
+
+              {open && (
+                <div style={{ padding: '0 0 0.5rem' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f8f8f8', borderBottom: '2px solid #e0e0e0' }}>
+                          <th style={th}>Cliente</th>
+                          <th style={{ ...th, textAlign: 'right' }}>Pagos totales</th>
+                          <th style={{ ...th, textAlign: 'right' }}>Aplicado</th>
+                          <th style={{ ...th, textAlign: 'right' }}>Sin asignar</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {unallocated.rows.map(row => (
+                          <tr key={row.customerId} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                            <td style={td}>{row.customerName}</td>
+                            <td style={{ ...td, textAlign: 'right' }}>{fmt(row.totalPayments)}</td>
+                            <td style={{ ...td, textAlign: 'right' }}>{fmt(row.allocatedAmount)}</td>
+                            <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: '#e67e22' }}>{fmt(row.unallocatedAmount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ borderTop: '2px solid #e0e0e0', backgroundColor: '#fafafa', fontWeight: 700 }}>
+                          <td style={td}>TOTAL</td>
+                          <td style={{ ...td, textAlign: 'right' }} />
+                          <td style={{ ...td, textAlign: 'right' }} />
+                          <td style={{ ...td, textAlign: 'right', color: '#e67e22' }}>{fmt(unallocated.totalUnallocated)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: '#aaa', margin: '0.5rem 1rem 0' }}>
+                    † Estos montos no son atribuibles a ningún proveedor hasta que se apliquen a remisiones (en Cuentas por Cobrar o al editar el pago).
+                  </p>
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
     </>
   )
@@ -289,14 +364,22 @@ function CantidadesReport({ suppliers }: { suppliers: SupplierDto[] }) {
     const rows = reports.flatMap(report => [
       ...report.rows.map(row => {
         const obj: Record<string, unknown> = { 'Proveedor': report.supplierName, 'Cliente': row.customerName }
-        report.products.forEach((p, i) => { obj[p.productName] = row.quantities[i] ?? 0 })
-        obj['Total'] = row.totalQuantity
+        report.products.forEach((p, i) => {
+          obj[`${p.productName} (vend.)`] = row.quantitiesSold[i] ?? 0
+          obj[`${p.productName} (dev.)`] = row.quantitiesReturned[i] ?? 0
+        })
+        obj['Total vend.'] = row.totalSold
+        obj['Total dev.'] = row.totalReturned
         return obj
       }),
       (() => {
         const obj: Record<string, unknown> = { 'Proveedor': report.supplierName, 'Cliente': 'TOTALES' }
-        report.products.forEach((p, i) => { obj[p.productName] = report.productTotals[i] ?? 0 })
-        obj['Total'] = report.grandTotal
+        report.products.forEach((p, i) => {
+          obj[`${p.productName} (vend.)`] = report.productTotalsSold[i] ?? 0
+          obj[`${p.productName} (dev.)`] = report.productTotalsReturned[i] ?? 0
+        })
+        obj['Total vend.'] = report.grandTotalSold
+        obj['Total dev.'] = report.grandTotalReturned
         return obj
       })(),
     ])
@@ -342,6 +425,12 @@ function CantidadesReport({ suppliers }: { suppliers: SupplierDto[] }) {
 
       {error && <p style={{ color: '#c0392b', marginTop: '1rem' }}>{error}</p>}
 
+      {reports.length > 0 && (
+        <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '1rem' }}>
+          Cantidad vendida · <span style={{ color: '#c0392b' }}>−devuelta</span> (en rojo).
+        </p>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
         {reports.map(report => {
           const key = String(report.supplierId ?? 'all')
@@ -355,7 +444,8 @@ function CantidadesReport({ suppliers }: { suppliers: SupplierDto[] }) {
                   <span style={{ fontSize: '0.8rem', color: '#888' }}>{report.products.length} producto{report.products.length !== 1 ? 's' : ''}</span>
                 </span>
                 <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1a1a2e' }}>
-                  {report.grandTotal} uds.
+                  {report.grandTotalSold} vend.
+                  {report.grandTotalReturned > 0 && <span style={{ color: '#c0392b', marginLeft: '0.5rem' }}>{report.grandTotalReturned} dev.</span>}
                 </span>
               </button>
 
@@ -378,22 +468,28 @@ function CantidadesReport({ suppliers }: { suppliers: SupplierDto[] }) {
                         {report.rows.map(row => (
                           <tr key={row.customerId} style={{ borderBottom: '1px solid #f0f0f0' }}>
                             <td style={td}>{row.customerName}</td>
-                            {row.quantities.map((qty, i) => (
-                              <td key={i} style={{ ...td, textAlign: 'center', color: qty === 0 ? '#ccc' : undefined }}>
-                                {qty === 0 ? '—' : qty}
+                            {report.products.map((_, i) => (
+                              <td key={i} style={{ ...td, textAlign: 'center' }}>
+                                <QtyCell sold={row.quantitiesSold[i]} returned={row.quantitiesReturned[i]} />
                               </td>
                             ))}
-                            <td style={{ ...td, textAlign: 'center', fontWeight: 700 }}>{row.totalQuantity}</td>
+                            <td style={{ ...td, textAlign: 'center', fontWeight: 700 }}>
+                              <QtyCell sold={row.totalSold} returned={row.totalReturned} />
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
                         <tr style={{ borderTop: '2px solid #e0e0e0', backgroundColor: '#fafafa', fontWeight: 700 }}>
                           <td style={td}>TOTALES</td>
-                          {report.productTotals.map((t, i) => (
-                            <td key={i} style={{ ...td, textAlign: 'center' }}>{t}</td>
+                          {report.products.map((_, i) => (
+                            <td key={i} style={{ ...td, textAlign: 'center' }}>
+                              <QtyCell sold={report.productTotalsSold[i]} returned={report.productTotalsReturned[i]} />
+                            </td>
                           ))}
-                          <td style={{ ...td, textAlign: 'center' }}>{report.grandTotal}</td>
+                          <td style={{ ...td, textAlign: 'center' }}>
+                            <QtyCell sold={report.grandTotalSold} returned={report.grandTotalReturned} />
+                          </td>
                         </tr>
                       </tfoot>
                     </table>
@@ -405,6 +501,18 @@ function CantidadesReport({ suppliers }: { suppliers: SupplierDto[] }) {
         })}
       </div>
     </>
+  )
+}
+
+// Muestra vendido y, si hubo, devuelto (en rojo). Vendido y devuelto van por separado: nunca se
+// netean, así que un producto se ve aunque se haya devuelto más de lo vendido.
+function QtyCell({ sold, returned }: { sold: number; returned: number }) {
+  if (sold === 0 && returned === 0) return <span style={{ color: '#ccc' }}>—</span>
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1.25 }}>
+      <span style={{ color: sold === 0 ? '#ccc' : undefined }}>{sold}</span>
+      {returned > 0 && <span style={{ color: '#c0392b', fontSize: '0.78rem', fontWeight: 400 }}>−{returned}</span>}
+    </span>
   )
 }
 
