@@ -52,9 +52,8 @@ export interface CreatePaymentDto {
   allocations?: CreatePaymentAllocationDto[]
 }
 
-export interface UpdatePaymentDto extends CreatePaymentDto {
-  isActive: boolean
-}
+// Sin campos propios: isActive no lo edita el usuario, solo lo mueve el borrado.
+export type UpdatePaymentDto = CreatePaymentDto
 
 export const paymentService = {
   getAll: async (): Promise<PaymentDto[]> => {

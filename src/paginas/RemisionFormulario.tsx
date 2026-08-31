@@ -131,7 +131,7 @@ export function RemissionForm() {
       }
       let result: RemissionDto
       if (isEdit) {
-        result = await remissionService.update(Number(id), { ...base, isActive: true })
+        result = await remissionService.update(Number(id), base)
       } else {
         result = await remissionService.create(base)
       }

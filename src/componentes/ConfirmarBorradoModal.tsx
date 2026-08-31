@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Modal, Button, Spinner } from 'react-bootstrap'
-import type { DeletionImpactDto } from '../servicios/borradoServicio'
+import type { DeletionImpactDto, DeletionImpactItemDto } from '../servicios/borradoServicio'
+import { errorMessage } from '../utils/errores'
 
 interface Props {
   show: boolean
@@ -12,13 +13,24 @@ interface Props {
   onDeleted: () => void
 }
 
-const errorMessage = (err: unknown): string => {
-  const response = (err as { response?: { data?: { error?: string } } }).response
-  return response?.data?.error ?? 'No se pudo completar el borrado.'
+// Las referencias conservadas solo llegan como remisiones y devoluciones, así que basta
+// singularizar esos dos casos para que no diga "1 remisiones".
+const SINGULAR: Record<string, string> = {
+  Remisiones: 'remisión',
+  Devoluciones: 'devolución',
 }
 
-// El borrado es físico y en cascada, así que antes de confirmar se muestra exactamente
-// qué registros se van a perder.
+const describe = (item: DeletionImpactItemDto) =>
+  item.count === 1 && SINGULAR[item.entityName]
+    ? `${item.count} ${SINGULAR[item.entityName]}`
+    : `${item.count} ${item.entityName.toLowerCase()}`
+
+const joinEs = (parts: string[]) =>
+  parts.length <= 1 ? parts.join('') : `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}`
+
+// El borrado saca la entidad de toda la aplicación, pero no destruye nada. Antes de confirmar
+// se muestran las dos mitades del impacto: lo que se elimina con ella y los documentos ya
+// emitidos que la citan y quedan intactos.
 export function ConfirmDeleteModal({ show, id, title, onImpact, onDelete, onClose, onDeleted }: Props) {
   const [impact, setImpact] = useState<DeletionImpactDto | null>(null)
   const [loading, setLoading] = useState(false)
@@ -32,7 +44,7 @@ export function ConfirmDeleteModal({ show, id, title, onImpact, onDelete, onClos
     setLoading(true)
     onImpact(id)
       .then(setImpact)
-      .catch(err => setError(errorMessage(err)))
+      .catch(err => setError(errorMessage(err, 'No se pudo completar el borrado.')))
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show, id])
@@ -45,13 +57,14 @@ export function ConfirmDeleteModal({ show, id, title, onImpact, onDelete, onClos
       await onDelete(id)
       onDeleted()
     } catch (err) {
-      setError(errorMessage(err))
+      setError(errorMessage(err, 'No se pudo completar el borrado.'))
     } finally {
       setDeleting(false)
     }
   }
 
   const hasDependents = (impact?.totalDependents ?? 0) > 0
+  const hasPreserved = (impact?.totalPreserved ?? 0) > 0
 
   return (
     <Modal show={show} onHide={onClose} centered>
@@ -70,10 +83,10 @@ export function ConfirmDeleteModal({ show, id, title, onImpact, onDelete, onClos
             <p className="mb-2">
               Se eliminará <strong>{impact.label}</strong>.
             </p>
-            {hasDependents ? (
+            {hasDependents && (
               <>
                 <p className="mb-2 text-danger">
-                  Esta acción también borrará permanentemente:
+                  Esta acción también eliminará:
                 </p>
                 <ul className="mb-2">
                   {impact.items.map(item => (
@@ -82,13 +95,21 @@ export function ConfirmDeleteModal({ show, id, title, onImpact, onDelete, onClos
                     </li>
                   ))}
                 </ul>
-                <p className="mb-0 text-muted small">Esta acción no se puede deshacer.</p>
               </>
-            ) : (
-              <p className="mb-0 text-muted small">
-                No tiene registros relacionados. Esta acción no se puede deshacer.
+            )}
+
+            {hasPreserved && (
+              <p className="mb-2">
+                Los documentos ya emitidos que lo incluyen no se modifican:{' '}
+                {joinEs(impact.preservedItems.map(describe))}.
               </p>
             )}
+
+            {!hasDependents && !hasPreserved && (
+              <p className="mb-2 text-muted small">No tiene registros relacionados.</p>
+            )}
+
+            <p className="mb-0 text-muted small">Esta acción no se puede deshacer.</p>
           </>
         )}
 

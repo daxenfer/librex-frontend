@@ -41,7 +41,7 @@ export function CustomerForm({ show, customer, onSave, onClose }: Props) {
     setSaving(true)
     try {
       const dto = { name, contact: contact || undefined, address, postalCode, phone, city }
-      await onSave(customer ? { ...dto, isActive: true } : dto)
+      await onSave(dto)
     } finally {
       setSaving(false)
     }

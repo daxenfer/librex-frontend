@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
-import type { SupplierReport, UnallocatedPaymentsReport } from '../servicios/reportesServicio'
+import type { SupplierReport, UnallocatedPaymentsReport, UnlinkedReturnsReport } from '../servicios/reportesServicio'
 
 const DARK = '#1a1a2e'
 const LIGHT = '#f4f4f8'
@@ -32,9 +32,10 @@ interface Props {
   reports: SupplierReport[]
   filtroProveedor: string
   unallocated?: UnallocatedPaymentsReport
+  unlinkedReturns?: UnlinkedReturnsReport
 }
 
-export function SaldosReportePdf({ reports, filtroProveedor, unallocated }: Props) {
+export function SaldosReportePdf({ reports, filtroProveedor, unallocated, unlinkedReturns }: Props) {
   const fecha = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
   return (
     <Document>
@@ -78,6 +79,34 @@ export function SaldosReportePdf({ reports, filtroProveedor, unallocated }: Prop
             </View>
           </View>
         ))}
+
+        {unlinkedReturns && unlinkedReturns.rows.length > 0 && (
+          <View style={s.section}>
+            <Text style={s.supplierName}>Devoluciones sin remision</Text>
+            <View style={s.table}>
+              <View style={s.thead}>
+                <Text style={s.th}>Cliente</Text>
+                <Text style={s.thRight}>Notas</Text>
+                <Text style={s.thRight}>Importe</Text>
+              </View>
+              {unlinkedReturns.rows.map((row, i) => (
+                <View key={row.customerId} style={i % 2 === 0 ? s.tr : s.trAlt}>
+                  <Text style={s.td}>{row.customerName}</Text>
+                  <Text style={s.tdRight}>{String(row.noteCount)}</Text>
+                  <Text style={s.tdRightBold}>{fmt(row.unlinkedAmount)}</Text>
+                </View>
+              ))}
+              <View style={s.trFoot}>
+                <Text style={s.tdBold}>TOTAL</Text>
+                <Text style={s.tdRight} />
+                <Text style={s.tdRightBold}>{fmt(unlinkedReturns.totalUnlinked)}</Text>
+              </View>
+            </View>
+            <Text style={{ fontSize: 6.5, color: '#888', marginTop: 4 }}>
+              Sin remision no hay venta a la cual atribuirlas: no se restan del saldo de ningun proveedor.
+            </Text>
+          </View>
+        )}
 
         {unallocated && unallocated.rows.length > 0 && (
           <View style={s.section}>

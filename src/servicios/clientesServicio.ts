@@ -28,7 +28,6 @@ export interface UpdateCustomerDto {
   postalCode: string
   phone: string
   city: string
-  isActive: boolean
 }
 
 export const customerService = {

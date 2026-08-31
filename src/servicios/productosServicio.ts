@@ -32,7 +32,6 @@ export interface UpdateProductDto {
   schoolLevel?: string
   unitType: string
   supplierId: number
-  isActive: boolean
 }
 
 export const productService = {

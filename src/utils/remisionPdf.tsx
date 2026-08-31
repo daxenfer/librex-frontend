@@ -1,23 +1,23 @@
 import type { RemissionDto } from '../servicios/remisionesServicio'
 import { remissionService } from '../servicios/remisionesServicio'
-import { productService } from '../servicios/productosServicio'
 import { settingsService } from '../servicios/settingsServicio'
 import { printPdfBlob } from './printPdf'
 
-// Genera el blob del PDF de una remisión. Refresca el registro completo con getById
-// para asegurar que trae `details` (el endpoint de lista podría no poblarlos) y arma
-// el mapa productId → ISBN a partir del catálogo de productos.
+// Genera el blob del PDF de una remisión. Refresca el registro completo con getById para
+// asegurar que trae `details` (el endpoint de lista podría no poblarlos) y arma el mapa
+// productId → ISBN con los datos del propio documento. El catálogo no sirve aquí: no lista
+// productos eliminados, y una remisión ya emitida debe imprimirse igual aunque su producto
+// se haya dado de baja después.
 async function buildRemissionBlob(remission: RemissionDto, orientation: 'landscape' | 'portrait') {
-  const [settings, full, products, { pdf }, { RemisionPdf }] = await Promise.all([
+  const [settings, full, { pdf }, { RemisionPdf }] = await Promise.all([
     settingsService.get(),
     remissionService.getById(remission.id).catch(() => remission),
-    productService.getAll().catch(() => []),
     import('@react-pdf/renderer'),
     import('../componentes/RemisionPdf'),
   ])
 
   const isbnByProductId: Record<number, string> = {}
-  for (const p of products) if (p.isbn) isbnByProductId[p.id] = p.isbn
+  for (const d of full.details) if (d.isbn) isbnByProductId[d.productId] = d.isbn
 
   return pdf(
     <RemisionPdf remission={full} settings={settings} isbnByProductId={isbnByProductId} orientation={orientation} />

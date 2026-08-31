@@ -46,9 +46,7 @@ export function ProductForm({ show, product, onSave, onClose }: Props) {
       const pid = Number(supplierId)
       const isbnValue = isbn || undefined
       const levelValue = schoolLevel || undefined
-      await onSave(product
-        ? { name, isbn: isbnValue, schoolLevel: levelValue, unitType, supplierId: pid, isActive: true }
-        : { name, isbn: isbnValue, schoolLevel: levelValue, unitType, supplierId: pid })
+      await onSave({ name, isbn: isbnValue, schoolLevel: levelValue, unitType, supplierId: pid })
     } finally {
       setSaving(false)
     }

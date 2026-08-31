@@ -22,7 +22,6 @@ export interface UpdateSupplierDto {
   contact: string
   phone: string
   email: string
-  isActive: boolean
 }
 
 export const supplierService = {

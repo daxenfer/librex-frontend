@@ -5,6 +5,7 @@ export interface RemissionDetailDto {
   id: number
   productId: number
   productName: string
+  isbn?: string
   supplierName?: string
   teacher?: string
   quantity: number
@@ -60,9 +61,8 @@ export interface CreateRemissionDto {
   details: CreateRemissionDetailDto[]
 }
 
-export interface UpdateRemissionDto extends CreateRemissionDto {
-  isActive: boolean
-}
+// Sin campos propios: isActive no lo edita el usuario, solo lo mueve el borrado.
+export type UpdateRemissionDto = CreateRemissionDto
 
 export const remissionService = {
   getAll: async (): Promise<RemissionDto[]> => {

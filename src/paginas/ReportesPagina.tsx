@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   reportService,
   type CustomerReportRow, type SupplierReport,
-  type SalesByProductReport, type UnallocatedPaymentsReport,
+  type SalesByProductReport, type UnallocatedPaymentsReport, type UnlinkedReturnsReport,
 } from '../servicios/reportesServicio'
 import { supplierService, type SupplierDto } from '../servicios/proveedoresServicio'
 import { exportToExcel } from '../utils/exportarExcel'
@@ -59,6 +59,7 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('')
   const [reports, setReports] = useState<SupplierReport[]>([])
   const [unallocated, setUnallocated] = useState<UnallocatedPaymentsReport | null>(null)
+  const [unlinkedReturns, setUnlinkedReturns] = useState<UnlinkedReturnsReport | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -68,17 +69,19 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
     setLoading(true); setError(null)
     try {
       const unallocatedPromise = reportService.getUnallocatedPayments()
+      const unlinkedPromise = reportService.getUnlinkedReturns()
       if (pid) {
         const r = await reportService.getBySupplier(Number(pid))
         setReports([r])
-        setExpanded(new Set([String(r.supplierId ?? 'all'), 'unallocated']))
+        setExpanded(new Set([String(r.supplierId ?? 'all'), 'unallocated', 'unlinked']))
       } else {
         const results = await Promise.all(suppliers.map(p => reportService.getBySupplier(p.id)))
         const filtered = results.filter(r => r.customers.length > 0)
         setReports(filtered)
-        setExpanded(new Set([...filtered.map(r => String(r.supplierId ?? 'all')), 'unallocated']))
+        setExpanded(new Set([...filtered.map(r => String(r.supplierId ?? 'all')), 'unallocated', 'unlinked']))
       }
       setUnallocated(await unallocatedPromise)
+      setUnlinkedReturns(await unlinkedPromise)
     } catch {
       setError('No se pudo generar el reporte.')
     } finally {
@@ -123,6 +126,22 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
         'Saldo': report.totals.balance,
       },
     ])
+    if (unlinkedReturns && unlinkedReturns.rows.length > 0) {
+      rows.push(
+        ...unlinkedReturns.rows.map(row => ({
+          'Proveedor': 'DEVOLUCIONES SIN REMISIÓN',
+          'Cliente': row.customerName,
+          'Notas': row.noteCount,
+          'Motivo': row.reasonSummary,
+          'Devoluciones': row.unlinkedAmount,
+        })),
+        {
+          'Proveedor': 'DEVOLUCIONES SIN REMISIÓN',
+          'Cliente': 'TOTAL SIN REMISIÓN',
+          'Devoluciones': unlinkedReturns.totalUnlinked,
+        },
+      )
+    }
     if (unallocated && unallocated.rows.length > 0) {
       rows.push(
         ...unallocated.rows.map(row => ({
@@ -151,7 +170,7 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
         import('../componentes/SaldosReportePdf'),
       ])
       const blob = await pdf(
-        <SaldosReportePdf reports={reports} filtroProveedor={supplierName} unallocated={unallocated ?? undefined} />
+        <SaldosReportePdf reports={reports} filtroProveedor={supplierName} unallocated={unallocated ?? undefined} unlinkedReturns={unlinkedReturns ?? undefined} />
       ).toBlob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -236,6 +255,60 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
             </div>
           )
         })}
+
+        {unlinkedReturns && unlinkedReturns.rows.length > 0 && (() => {
+          const open = expanded.has('unlinked')
+          return (
+            <div style={accordionWrapper}>
+              <button style={accordionHeader} onClick={() => toggle('unlinked')}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#999', transition: 'transform 0.2s', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                  <span style={{ fontWeight: 700, color: '#1a1a2e', fontSize: '0.95rem' }}>Devoluciones sin remisión</span>
+                  <span style={{ fontSize: '0.8rem', color: '#888' }}>{unlinkedReturns.rows.length} cliente{unlinkedReturns.rows.length !== 1 ? 's' : ''}</span>
+                </span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#e67e22' }}>{fmt(unlinkedReturns.totalUnlinked)}</span>
+              </button>
+
+              {open && (
+                <div style={{ padding: '0 0 0.5rem' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f8f8f8', borderBottom: '2px solid #e0e0e0' }}>
+                          <th style={th}>Cliente</th>
+                          <th style={{ ...th, textAlign: 'center' }}>Notas</th>
+                          <th style={th}>Motivo</th>
+                          <th style={{ ...th, textAlign: 'right' }}>Importe</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {unlinkedReturns.rows.map(row => (
+                          <tr key={row.customerId} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                            <td style={td}>{row.customerName}</td>
+                            <td style={{ ...td, textAlign: 'center' }}>{row.noteCount}</td>
+                            <td style={{ ...td, color: '#777', fontSize: '0.85rem' }}>{row.reasonSummary || '—'}</td>
+                            <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: '#e67e22' }}>{fmt(row.unlinkedAmount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ borderTop: '2px solid #e0e0e0', backgroundColor: '#fafafa', fontWeight: 700 }}>
+                          <td style={td}>TOTAL</td>
+                          <td style={td} />
+                          <td style={td} />
+                          <td style={{ ...td, textAlign: 'right', color: '#e67e22' }}>{fmt(unlinkedReturns.totalUnlinked)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: '#aaa', margin: '0.5rem 1rem 0' }}>
+                    † Estas devoluciones no se restan del saldo de ningún proveedor: sin remisión no hay venta a la cual atribuirlas.
+                  </p>
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {unallocated && unallocated.rows.length > 0 && (() => {
           const open = expanded.has('unallocated')

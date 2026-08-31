@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useMemo, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { returnNoteService, type CreateReturnNoteDetailDto, type ReturnNoteDto } from '../servicios/devolucionesServicio'
 import { customerService, type CustomerDto } from '../servicios/clientesServicio'
@@ -8,6 +8,7 @@ import { DateField } from '../componentes/DateField'
 import { ProductPickerModal } from '../componentes/ProductPickerModal'
 import { downloadReturnNotePdf, printReturnNotePdf, printReturnNotePdfVertical } from '../utils/devolucionPdf'
 import { todayIso, toUtcNoon } from '../utils/dates'
+import { errorMessage } from '../utils/errores'
 
 interface DetailRow {
   productId: string
@@ -18,6 +19,14 @@ interface DetailRow {
 
 const emptyRow = (): DetailRow => ({ productId: '', supplierName: '', quantity: '', unitPrice: '' })
 
+const rowsFromRemission = (remission: RemissionDto): DetailRow[] =>
+  remission.details.map(d => ({
+    productId: String(d.productId),
+    supplierName: d.supplierName ?? '',
+    quantity: String(d.quantity),
+    unitPrice: String(d.unitPrice),
+  }))
+
 export function ReturnNoteForm() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
@@ -25,6 +34,9 @@ export function ReturnNoteForm() {
 
   const [customerId, setCustomerId] = useState('')
   const [remissionId, setRemissionId] = useState<string>('')
+  // Capturar sin remisión sigue siendo posible, pero es una decisión explícita que exige motivo.
+  const [unlinked, setUnlinked] = useState(false)
+  const [unlinkedReason, setUnlinkedReason] = useState('')
   const [date, setDate] = useState(todayIso())
   const [notes, setNotes] = useState('')
   const [receivedBy, setReceivedBy] = useState('')
@@ -35,55 +47,113 @@ export function ReturnNoteForm() {
   const [customers, setCustomers] = useState<CustomerDto[]>([])
   const [products, setProducts] = useState<ProductDto[]>([])
   const [remissions, setRemissions] = useState<RemissionDto[]>([])
+  const [returns, setReturns] = useState<ReturnNoteDto[]>([])
+  // La remisión completa (con sus renglones), traída por id: la lista no puebla productName.
+  const [linkedRemission, setLinkedRemission] = useState<RemissionDto | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(isEdit)
   const [savedNote, setSavedNote] = useState<ReturnNoteDto | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([customerService.getAll(), productService.getAll(), remissionService.getAll()])
-      .then(([c, p, r]) => { setCustomers(c); setProducts(p); setRemissions(r) })
+    Promise.all([
+      customerService.getAll(), productService.getAll(),
+      remissionService.getAll(), returnNoteService.getAll(),
+    ])
+      .then(([c, p, r, n]) => { setCustomers(c); setProducts(p); setRemissions(r); setReturns(n) })
       .catch(() => {})
   }, [])
 
   useEffect(() => {
     if (!isEdit) return
-    returnNoteService.getById(Number(id)).then(r => {
+    returnNoteService.getById(Number(id)).then(async r => {
       setCustomerId(String(r.customerId))
       setRemissionId(r.remissionId ? String(r.remissionId) : '')
+      setUnlinked(!r.remissionId)
+      setUnlinkedReason(r.unlinkedReason ?? '')
       setDate(r.date.slice(0, 10))
       setNotes(r.notes ?? '')
       setReceivedBy(r.receivedBy ?? '')
       setDiscount(String(r.discount))
       setSavedNote(r)
+      // Los renglones son los de la nota, no los de la remisión: al editar no se recargan.
       setDetails(r.details.map(d => ({
         productId: String(d.productId),
         supplierName: d.supplierName ?? '',
         quantity: String(d.quantity),
         unitPrice: String(d.unitPrice),
       })))
+      if (r.remissionId) {
+        setLinkedRemission(await remissionService.getById(r.remissionId).catch(() => null))
+      }
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
 
-  const productMap = Object.fromEntries(products.map(p => [p.id, p]))
-
   const customerRemissions = remissions.filter(r => r.customerId === Number(customerId))
+
+  // Nombres por id: incluye los de la remisión ligada, para que un producto ya eliminado del
+  // catálogo siga mostrando su nombre en el renglón.
+  const productNameById = useMemo(() => {
+    const map: Record<number, string> = {}
+    for (const p of products) map[p.id] = p.name
+    for (const d of linkedRemission?.details ?? []) map[d.productId] = d.productName
+    return map
+  }, [products, linkedRemission])
+
+  // Con una remisión ligada, solo se pueden devolver los productos que iban en ella.
+  const pickerProducts = useMemo(() => {
+    if (!linkedRemission) return products
+    const ids = new Set(linkedRemission.details.map(d => d.productId))
+    return products.filter(p => ids.has(p.id))
+  }, [products, linkedRemission])
+
+  const remittedByProduct = useMemo(() => {
+    const map: Record<number, number> = {}
+    for (const d of linkedRemission?.details ?? []) {
+      map[d.productId] = (map[d.productId] ?? 0) + d.quantity
+    }
+    return map
+  }, [linkedRemission])
+
+  // Lo ya devuelto en OTRAS notas de la misma remisión; la nota en edición no se cuenta a sí misma.
+  const returnedByProduct = useMemo(() => {
+    const map: Record<number, number> = {}
+    if (!linkedRemission) return map
+    for (const note of returns) {
+      if (!note.isActive || note.remissionId !== linkedRemission.id) continue
+      if (isEdit && note.id === Number(id)) continue
+      for (const d of note.details) map[d.productId] = (map[d.productId] ?? 0) + d.quantity
+    }
+    return map
+  }, [returns, linkedRemission, isEdit, id])
+
+  const availableFor = (productId: number) =>
+    (remittedByProduct[productId] ?? 0) - (returnedByProduct[productId] ?? 0)
 
   const handleCustomerChange = (val: string) => {
     setCustomerId(val)
     setRemissionId('')
+    setLinkedRemission(null)
   }
 
-  const loadFromRemission = () => {
-    const r = remissions.find(r => r.id === Number(remissionId))
-    if (!r) return
-    setDetails(r.details.map(d => ({
-      productId: String(d.productId),
-      supplierName: d.supplierName ?? '',
-      quantity: String(d.quantity),
-      unitPrice: String(d.unitPrice),
-    })))
+  // Elegir la remisión carga sus renglones: ligar tiene que costar menos que no ligar.
+  const handleRemissionChange = async (val: string) => {
+    setRemissionId(val)
+    if (!val) { setLinkedRemission(null); return }
+    const full = await remissionService.getById(Number(val)).catch(() => null)
+    setLinkedRemission(full)
+    if (full) setDetails(rowsFromRemission(full))
+  }
+
+  const handleUnlinkedChange = (checked: boolean) => {
+    setUnlinked(checked)
+    if (checked) {
+      setRemissionId('')
+      setLinkedRemission(null)
+    } else {
+      setUnlinkedReason('')
+    }
   }
 
   const updateRow = (i: number, field: keyof DetailRow, value: string) => {
@@ -91,7 +161,7 @@ export function ReturnNoteForm() {
       const next = [...prev]
       next[i] = { ...next[i], [field]: value }
       if (field === 'productId' && value) {
-        const p = productMap[Number(value)]
+        const p = products.find(x => x.id === Number(value))
         if (p) next[i].supplierName = p.supplierName ?? ''
       }
       return next
@@ -110,6 +180,12 @@ export function ReturnNoteForm() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!customerId) { setError('Selecciona un cliente.'); return }
+    if (!unlinked && !remissionId) {
+      setError('Selecciona la remisión que se está devolviendo, o marca que no corresponde a ninguna.'); return
+    }
+    if (unlinked && !unlinkedReason.trim()) {
+      setError('Indica el motivo por el que la devolución no corresponde a una remisión.'); return
+    }
     if (details.some(d => !d.productId || !d.quantity || !d.unitPrice)) {
       setError('Completa todos los campos de los productos.'); return
     }
@@ -122,7 +198,8 @@ export function ReturnNoteForm() {
       }))
       const base = {
         customerId: Number(customerId),
-        remissionId: remissionId ? Number(remissionId) : undefined,
+        remissionId: unlinked ? undefined : Number(remissionId),
+        unlinkedReason: unlinked ? unlinkedReason.trim() : undefined,
         date: toUtcNoon(date),
         notes: notes || undefined,
         receivedBy: receivedBy || undefined,
@@ -131,14 +208,14 @@ export function ReturnNoteForm() {
       }
       let result: ReturnNoteDto
       if (isEdit) {
-        result = await returnNoteService.update(Number(id), { ...base, isActive: true })
+        result = await returnNoteService.update(Number(id), base)
       } else {
         result = await returnNoteService.create(base)
       }
       setSavedNote(result)
       navigate('/returns')
-    } catch {
-      setError('Error al guardar la devolución.')
+    } catch (err) {
+      setError(errorMessage(err, 'Error al guardar la devolución.'))
     } finally {
       setSaving(false)
     }
@@ -195,24 +272,49 @@ export function ReturnNoteForm() {
             </div>
           </div>
 
-          <div style={{ ...row, marginTop: 10 }}>
-            <div style={{ ...field, flex: 2 }}>
-              <label style={label}>Remisión (opcional)</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <select style={{ ...input, flex: 1 }} value={remissionId} onChange={e => setRemissionId(e.target.value)} disabled={!customerId}>
-                  <option value="">Sin remisión</option>
+          {!unlinked && (
+            <div style={{ ...row, marginTop: 10 }}>
+              <div style={{ ...field, flex: 2 }}>
+                <label style={label}>Remisión *</label>
+                <select
+                  style={{ ...input, flex: 1 }} value={remissionId}
+                  onChange={e => handleRemissionChange(e.target.value)}
+                  disabled={!customerId}
+                >
+                  <option value="">Seleccionar remisión...</option>
                   {customerRemissions.map(r => (
                     <option key={r.id} value={r.id}>N° {r.folioFormatted} — {new Date(r.date).toLocaleDateString('es-MX')}</option>
                   ))}
                 </select>
-                {remissionId && (
-                  <button type="button" style={btnLoad} onClick={loadFromRemission}>
-                    Cargar ítems
-                  </button>
+                {linkedRemission && (
+                  <span style={hint}>
+                    Se cargaron {linkedRemission.details.length} renglones de la remisión.
+                  </span>
                 )}
               </div>
             </div>
-          </div>
+          )}
+
+          <label style={checkboxRow}>
+            <input type="checkbox" checked={unlinked} onChange={e => handleUnlinkedChange(e.target.checked)} />
+            Esta devolución no corresponde a una remisión
+          </label>
+
+          {unlinked && (
+            <div style={{ ...row, marginTop: 10 }}>
+              <div style={{ ...field, flex: 2 }}>
+                <label style={label}>Motivo *</label>
+                <input
+                  style={input} type="text" value={unlinkedReason} maxLength={500}
+                  onChange={e => setUnlinkedReason(e.target.value)}
+                  placeholder="Por qué no hay remisión (material de muestra, reposición, etc.)"
+                />
+                <span style={hint}>
+                  Sale en el reporte de devoluciones sin remisión y no se le atribuye a ningún proveedor.
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ ...card, marginTop: 12 }}>
@@ -232,6 +334,9 @@ export function ReturnNoteForm() {
               <tbody>
                 {details.map((d, i) => {
                   const amt = (parseFloat(d.quantity) || 0) * (parseFloat(d.unitPrice) || 0)
+                  const pid = Number(d.productId)
+                  const available = linkedRemission && d.productId ? availableFor(pid) : null
+                  const exceeds = available !== null && (parseFloat(d.quantity) || 0) > available
                   return (
                     <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
                       <td style={td}>
@@ -243,11 +348,22 @@ export function ReturnNoteForm() {
                           style={{ ...pickerBtn, color: d.productId ? '#1a1a2e' : '#999' }}
                           onClick={() => setPickerRow(i)}
                         >
-                          {productMap[Number(d.productId)]?.name ?? 'Seleccionar...'}
+                          {productNameById[pid] ?? 'Seleccionar...'}
                         </button>
                       </td>
                       <td style={td}>
-                        <input style={inputSmall} type="number" value={d.quantity} onChange={e => updateRow(i, 'quantity', e.target.value)} min="0.01" step="0.01" required />
+                        <input
+                          style={{ ...inputSmall, ...(exceeds ? inputWarning : null) }}
+                          type="number" value={d.quantity}
+                          onChange={e => updateRow(i, 'quantity', e.target.value)}
+                          min="0.01" step="0.01" required
+                        />
+                        {exceeds && (
+                          <span style={warningText}>
+                            Remitidas {remittedByProduct[pid] ?? 0} · ya devueltas{' '}
+                            {returnedByProduct[pid] ?? 0} · disponible {available}
+                          </span>
+                        )}
                       </td>
                       <td style={td}>
                         <input style={inputSmall} type="number" value={d.unitPrice} onChange={e => updateRow(i, 'unitPrice', e.target.value)} min="0" step="0.01" required />
@@ -304,7 +420,7 @@ export function ReturnNoteForm() {
 
       <ProductPickerModal
         show={pickerRow !== null}
-        products={products}
+        products={pickerProducts}
         onClose={() => setPickerRow(null)}
         onSelect={p => { if (pickerRow !== null) updateRow(pickerRow, 'productId', String(p.id)); setPickerRow(null) }}
       />
@@ -317,8 +433,12 @@ const sectionTitle: React.CSSProperties = { color: '#1a1a2e', fontWeight: 700, m
 const row: React.CSSProperties = { display: 'flex', gap: '1rem', flexWrap: 'wrap' }
 const field: React.CSSProperties = { flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 4 }
 const label: React.CSSProperties = { fontSize: '0.8rem', fontWeight: 600, color: '#555' }
+const hint: React.CSSProperties = { fontSize: '0.75rem', color: '#888' }
+const checkboxRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: '0.85rem', color: '#555', cursor: 'pointer' }
 const input: React.CSSProperties = { padding: '0.45rem 0.6rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.9rem', width: '100%', boxSizing: 'border-box' }
 const inputSmall: React.CSSProperties = { padding: '0.3rem 0.4rem', border: '1px solid #ccc', borderRadius: '3px', fontSize: '0.85rem', width: '100%', boxSizing: 'border-box' }
+const inputWarning: React.CSSProperties = { borderColor: '#c0392b', backgroundColor: '#fdf1f0' }
+const warningText: React.CSSProperties = { display: 'block', marginTop: 2, fontSize: '0.7rem', color: '#c0392b' }
 const th: React.CSSProperties = { padding: '0.6rem 0.75rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: 700, borderBottom: '2px solid #ddd' }
 const td: React.CSSProperties = { padding: '0.4rem 0.5rem', verticalAlign: 'middle' }
 const totalRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '1rem' }
@@ -331,4 +451,3 @@ const pickerBtn: React.CSSProperties = { padding: '0.3rem 0.4rem', border: '1px 
 const btnRemove: React.CSSProperties = { padding: '0.2rem 0.4rem', backgroundColor: '#c0392b', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.75rem' }
 const btnPdf: React.CSSProperties = { padding: '0.5rem 1rem', backgroundColor: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem' }
 const btnPrintPdf: React.CSSProperties = { padding: '0.5rem 1rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem' }
-const btnLoad: React.CSSProperties = { padding: '0.45rem 0.8rem', backgroundColor: '#2980b9', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', whiteSpace: 'nowrap' }

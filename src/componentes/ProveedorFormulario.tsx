@@ -35,7 +35,7 @@ export function SupplierForm({ show, supplier, onSave, onClose }: Props) {
     setSaving(true)
     try {
       const dto = { name, contact, phone, email }
-      await onSave(supplier ? { ...dto, isActive: true } : dto)
+      await onSave(dto)
     } finally {
       setSaving(false)
     }

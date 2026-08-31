@@ -19,6 +19,7 @@ export interface ReturnNoteDto {
   customerName: string
   remissionId?: number
   remissionFolioFormatted?: string
+  unlinkedReason?: string
   date: string
   notes?: string
   receivedBy?: string
@@ -37,8 +38,9 @@ export interface CreateReturnNoteDetailDto {
 
 export interface CreateReturnNoteDto {
   customerId: number
-  // Opcional: la devolución se captura a nivel cliente y puede ligarse a una remisión después.
+  // Se puede omitir, pero entonces unlinkedReason es obligatorio: el backend lo valida.
   remissionId?: number
+  unlinkedReason?: string
   date: string
   notes?: string
   receivedBy?: string
@@ -46,9 +48,8 @@ export interface CreateReturnNoteDto {
   details: CreateReturnNoteDetailDto[]
 }
 
-export interface UpdateReturnNoteDto extends CreateReturnNoteDto {
-  isActive: boolean
-}
+// Sin campos propios: isActive no lo edita el usuario, solo lo mueve el borrado.
+export type UpdateReturnNoteDto = CreateReturnNoteDto
 
 export const returnNoteService = {
   getAll: async (): Promise<ReturnNoteDto[]> => {

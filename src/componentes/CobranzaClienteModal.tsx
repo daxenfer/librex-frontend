@@ -78,7 +78,6 @@ export function CobranzaClienteModal({ show, customer, onClose, onSaved }: Props
         concept: full.concept,
         collectedBy: full.collectedBy,
         city: full.city,
-        isActive: full.isActive,
         allocations,
       })
       onSaved()

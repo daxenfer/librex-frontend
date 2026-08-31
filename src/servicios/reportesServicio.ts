@@ -54,6 +54,19 @@ export interface UnallocatedPaymentsReport {
   totalUnallocated: number
 }
 
+export interface UnlinkedReturnRow {
+  customerId: number
+  customerName: string
+  noteCount: number
+  unlinkedAmount: number
+  reasonSummary: string
+}
+
+export interface UnlinkedReturnsReport {
+  rows: UnlinkedReturnRow[]
+  totalUnlinked: number
+}
+
 export const reportService = {
   getBySupplier: async (supplierId?: number): Promise<SupplierReport> => {
     const params = supplierId ? `?supplierId=${supplierId}` : ''
@@ -67,6 +80,10 @@ export const reportService = {
   },
   getUnallocatedPayments: async (): Promise<UnallocatedPaymentsReport> => {
     const { data } = await api.get<UnallocatedPaymentsReport>('/api/reports/unallocated-payments')
+    return data
+  },
+  getUnlinkedReturns: async (): Promise<UnlinkedReturnsReport> => {
+    const { data } = await api.get<UnlinkedReturnsReport>('/api/reports/unlinked-returns')
     return data
   },
 }
