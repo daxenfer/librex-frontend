@@ -17,21 +17,33 @@ const s = StyleSheet.create({
   // renglones, y sin esto quedaba una banda muerta debajo del domicilio.
   companyBlock: { flex: 1, paddingRight: 10, justifyContent: 'space-between' },
   companyTopRow:{ flexDirection: 'row', alignItems: 'center', gap: 9 },
-  headerLogo:   { width: 68, height: 68, objectFit: 'contain', flexShrink: 0 },
+  headerLogo:   { width: 62, height: 62, objectFit: 'contain', flexShrink: 0 },
   companyNameWrap: { flex: 1 },
   companyName:  { fontFamily: 'Helvetica-Bold', color: BLUE, letterSpacing: 0.3 },
   companyRfc:   { fontSize: 7.5, color: '#333', marginTop: 2 },
   companyLine:  { fontSize: 7.3, color: '#333', marginTop: 2 },
 
-  // Right: 2 rows × 3 boxes, each with a solid blue header strip
-  metaGrid:    { flexDirection: 'column', gap: 4 },
-  metaRow:     { flexDirection: 'row', gap: 4 },
-  metaBox:     { borderWidth: 1, borderColor: BLUE, width: 122 },
-  metaBoxWide: { borderWidth: 1, borderColor: BLUE, width: 374 },
+  // Right: 4 columnas. La 1ª lleva sola la orden de compra; las otras tres apilan el dato
+  // principal (franja azul) sobre su fecha o porcentaje (etiqueta chica en la esquina, como en
+  // el formato de papel).
+  //
+  // Las cajas de abajo llevan flex:1 y por eso la rejilla mide siempre lo mismo que el bloque
+  // de la empresa: crecen para igualarlo. Así no queda hueco de ningún lado, sin importar si el
+  // nombre ocupa uno o dos renglones.
+  metaGrid:    { flexDirection: 'row', gap: 4 },
+  metaCol:     { width: 106, flexDirection: 'column', gap: 3 },
+  metaColPo:   { width: 90, flexDirection: 'column' },
+  metaBox:     { borderWidth: 1, borderColor: BLUE },
+  metaBoxTall: { borderWidth: 1, borderColor: BLUE, flex: 1 },
   metaHead:    { backgroundColor: BLUE, paddingVertical: 2, paddingHorizontal: 2, minHeight: 18, justifyContent: 'center' },
   metaHeadText:{ fontSize: 6, color: '#fff', fontFamily: 'Helvetica-Bold', letterSpacing: 0.4, textAlign: 'center' },
   metaBody:    { paddingVertical: 3, paddingHorizontal: 4, minHeight: 21, justifyContent: 'center' },
+  metaBodyTall:{ paddingVertical: 3, paddingHorizontal: 4, flex: 1, justifyContent: 'center' },
   metaValue:   { fontSize: 8 },
+
+  // Celda inferior: sin franja, con la etiqueta chica arriba a la izquierda.
+  metaBoxSub:  { borderWidth: 1, borderColor: BLUE, flex: 1, paddingHorizontal: 4, paddingTop: 2, paddingBottom: 3, justifyContent: 'flex-start' },
+  metaSubLabel:{ fontSize: 5, color: BLUE, fontFamily: 'Helvetica-Bold', letterSpacing: 0.3, marginBottom: 2 },
 
   // Folio (red number on white, blue header strip)
   folioValue:  { fontSize: 16, color: RED, fontFamily: 'Helvetica-Bold', letterSpacing: 1, textAlign: 'center' },
@@ -88,15 +100,30 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-const MIN_ROWS = 12
+// Medidas por orientación. Carta son 792×612 en horizontal y 612×792 en vertical; restando el
+// padding de la página quedan 752 y 572pt de ancho útil. En vertical todo tiene que encoger o
+// la rejilla se come el bloque de la empresa.
+const LAYOUT = {
+  landscape: { usableWidth: 752, poWidth: 90, colWidth: 106, minRows: 21 },
+  portrait:  { usableWidth: 572, poWidth: 64, colWidth: 76,  minRows: 31 },
+} as const
 
-// El nombre del encabezado tiene 291pt de ancho útil en horizontal (lo que queda tras el logo
-// y la rejilla de cajas). A 17pt caben ~28 caracteres; "CLAUDIA VANESSA PEREZ SANCHEZ" en
-// mayúsculas mide 319pt y se partiría en dos renglones. Se achica en vez de partirse.
-function companyNameSize(name: string) {
-  if (name.length <= 24) return 17
-  if (name.length <= 30) return 14.5
-  return 12.5
+// Ancho que le queda al nombre: el útil menos la rejilla, su separación, el logo y su hueco.
+function nameWidth(l: (typeof LAYOUT)[keyof typeof LAYOUT]) {
+  return l.usableWidth - (l.poWidth + l.colWidth * 3 + 12) - 10 - 62 - 9
+}
+
+// El nombre se achica en vez de partirse en dos renglones.
+//
+// Los factores salen de medir Helvetica-Bold: "CLAUDIA VANESSA PEREZ SANCHEZ" ocupa 319pt a
+// 17pt (0.647 por carácter y punto) y el mismo nombre en minúsculas solo 267 (0.542). Vale la
+// pena distinguirlos: con un único factor conservador, un nombre normal se achicaba de más.
+function companyNameSize(name: string, available: number) {
+  const factor = name === name.toUpperCase() ? 0.66 : 0.56
+  for (const size of [17, 15, 13, 11.5, 10]) {
+    if (name.length * size * factor <= available) return size
+  }
+  return 10
 }
 
 interface Props {
@@ -107,7 +134,10 @@ interface Props {
 }
 
 export function RemisionPdf({ remission, settings, isbnByProductId = {}, orientation = 'landscape' }: Props) {
-  const emptyRows = Math.max(0, MIN_ROWS - remission.details.length)
+  const layout = LAYOUT[orientation]
+  // Las filas vacías llegan hasta abajo de la hoja, como en el formato de papel. Antes eran 12
+  // fijas y el documento terminaba a media página.
+  const emptyRows = Math.max(0, layout.minRows - remission.details.length)
 
   // El nombre del titular (o la razón social) es el que va junto al RFC, como en el formato de
   // papel. El nombre comercial es el respaldo: el logo ya lo lleva impreso.
@@ -127,7 +157,7 @@ export function RemisionPdf({ remission, settings, isbnByProductId = {}, orienta
             <View style={s.companyTopRow}>
               {logo ? <Image src={logo} style={s.headerLogo} /> : null}
               <View style={s.companyNameWrap}>
-                <Text style={[s.companyName, { fontSize: companyNameSize(headerName) }]}>{headerName}</Text>
+                <Text style={[s.companyName, { fontSize: companyNameSize(headerName, nameWidth(layout)) }]}>{headerName}</Text>
                 {settings.rfc ? <Text style={s.companyRfc}>R.F.C. {settings.rfc}</Text> : null}
               </View>
             </View>
@@ -139,47 +169,50 @@ export function RemisionPdf({ remission, settings, isbnByProductId = {}, orienta
             {addressLine ? <Text style={s.companyLine}>{addressLine}</Text> : null}
           </View>
 
-          {/* Right: 2 rows × 3 boxes, blue header strip + white body */}
+          {/* Right: 4 columns. La primera lleva sola la orden de compra y ocupa todo el alto;
+              las otras tres apilan el dato principal sobre su fecha o porcentaje, como en el
+              formato de papel. Antes la orden ocupaba una tercera fila propia de ancho completo,
+              que era lo que estiraba el encabezado. */}
           <View style={s.metaGrid}>
-            {/* Row 1: VENDEDOR | FECHA | REMISIÓN */}
-            <View style={s.metaRow}>
+            <View style={[s.metaColPo, { width: layout.poWidth }]}>
+              <View style={s.metaBoxTall}>
+                <View style={s.metaHead}><Text style={s.metaHeadText}>ORDEN DE COMPRA</Text></View>
+                <View style={s.metaBodyTall}><Text style={s.metaValue}>{remission.purchaseOrder ?? ''}</Text></View>
+              </View>
+            </View>
+
+            <View style={[s.metaCol, { width: layout.colWidth }]}>
               <View style={s.metaBox}>
                 <View style={s.metaHead}><Text style={s.metaHeadText}>VENDEDOR</Text></View>
                 <View style={s.metaBody}><Text style={s.metaValue}>{remission.salesPerson ?? ''}</Text></View>
               </View>
+              <View style={s.metaBoxSub}>
+                <Text style={s.metaSubLabel}>FECHA LÍMITE DE PAGO</Text>
+                <Text style={s.metaValue}>{fmtDate(remission.paymentDueDate)}</Text>
+              </View>
+            </View>
+
+            <View style={[s.metaCol, { width: layout.colWidth }]}>
               <View style={s.metaBox}>
                 <View style={s.metaHead}><Text style={s.metaHeadText}>FECHA</Text></View>
                 <View style={s.metaBody}><Text style={s.metaValue}>{fmtDate(remission.date)}</Text></View>
               </View>
+              <View style={s.metaBoxSub}>
+                <Text style={s.metaSubLabel}>PORCENTAJE DE DEVOLUCIÓN</Text>
+                <Text style={s.metaValue}>{remission.returnPercentage}%</Text>
+              </View>
+            </View>
+
+            <View style={[s.metaCol, { width: layout.colWidth }]}>
               <View style={s.metaBox}>
                 <View style={s.metaHead}><Text style={s.metaHeadText}>REMISIÓN</Text></View>
                 <View style={s.metaBody}><Text style={s.folioValue}>N° {remission.folioFormatted}</Text></View>
               </View>
-            </View>
-            {/* Row 2: FECHA LÍMITE PAGO | % DEVOLUCIÓN | FECHA LÍMITE DEVOLUCIÓN */}
-            <View style={s.metaRow}>
-              <View style={s.metaBox}>
-                <View style={s.metaHead}><Text style={s.metaHeadText}>FECHA LÍMITE DE PAGO</Text></View>
-                <View style={s.metaBody}><Text style={s.metaValue}>{fmtDate(remission.paymentDueDate)}</Text></View>
-              </View>
-              <View style={s.metaBox}>
-                <View style={s.metaHead}><Text style={s.metaHeadText}>PORCENTAJE DE DEVOLUCIÓN</Text></View>
-                <View style={s.metaBody}><Text style={s.metaValue}>{remission.returnPercentage}%</Text></View>
-              </View>
-              <View style={s.metaBox}>
-                <View style={s.metaHead}><Text style={s.metaHeadText}>FECHA LÍMITE DE DEVOLUCIÓN</Text></View>
-                <View style={s.metaBody}><Text style={s.metaValue}>{fmtDate(remission.returnDueDate)}</Text></View>
+              <View style={s.metaBoxSub}>
+                <Text style={s.metaSubLabel}>FECHA LÍMITE DE DEVOLUCIÓN</Text>
+                <Text style={s.metaValue}>{fmtDate(remission.returnDueDate)}</Text>
               </View>
             </View>
-            {/* Row 3 (optional): ORDEN DE COMPRA */}
-            {remission.purchaseOrder ? (
-              <View style={s.metaRow}>
-                <View style={s.metaBoxWide}>
-                  <View style={s.metaHead}><Text style={s.metaHeadText}>ORDEN DE COMPRA</Text></View>
-                  <View style={s.metaBody}><Text style={s.metaValue}>{remission.purchaseOrder}</Text></View>
-                </View>
-              </View>
-            ) : null}
           </View>
         </View>
 
