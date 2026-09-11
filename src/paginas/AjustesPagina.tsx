@@ -110,12 +110,21 @@ export function SettingsPage() {
           <h6 style={sectionTitle}>Datos de la empresa</h6>
           <div style={row}>
             <div style={field}>
-              <label style={labelStyle}>Razón social *</label>
+              <label style={labelStyle}>Nombre del titular o razón social *</label>
               <input style={input} value={form.companyName} onChange={e => update('companyName', e.target.value)} maxLength={200} required />
+              <small style={hint}>
+                El nombre que va junto al RFC en tus documentos: el de la persona si facturas
+                como persona física, o el de la empresa si es una sociedad. <b>Es el que se
+                imprime en remisiones, devoluciones y pagos.</b>
+              </small>
             </div>
             <div style={field}>
               <label style={labelStyle}>Nombre comercial *</label>
               <input style={input} value={form.brandName} onChange={e => update('brandName', e.target.value)} maxLength={200} required />
+              <small style={hint}>
+                Con el que te conoce el cliente. Hoy no se imprime en ningún documento: el logo
+                ya lo lleva.
+              </small>
             </div>
           </div>
 
@@ -179,6 +188,7 @@ const sectionTitle: React.CSSProperties = { color: '#1a1a2e', fontWeight: 700, m
 const row: React.CSSProperties = { display: 'flex', gap: '1rem', flexWrap: 'wrap' }
 const field: React.CSSProperties = { flex: 1, minWidth: 160, display: 'flex', flexDirection: 'column', gap: 4 }
 const labelStyle: React.CSSProperties = { fontSize: '0.8rem', fontWeight: 600, color: '#555' }
+const hint: React.CSSProperties = { fontSize: '0.72rem', color: '#888', lineHeight: 1.35 }
 const input: React.CSSProperties = { padding: '0.45rem 0.6rem', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.9rem', width: '100%', boxSizing: 'border-box' }
 const logoPreview: React.CSSProperties = { width: 160, height: 90, border: '1px dashed #ccc', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fafafa', padding: 6, boxSizing: 'border-box' }
 const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.5rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem' }

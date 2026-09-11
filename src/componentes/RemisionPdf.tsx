@@ -12,23 +12,25 @@ const s = StyleSheet.create({
   // ── Header ──────────────────────────────────────────────────────────────────
   header: { flexDirection: 'row', marginBottom: 6, borderBottom: `2px solid ${BLUE}`, paddingBottom: 6 },
 
-  // Left: company info
-  companyBlock: { flex: 1, paddingRight: 10 },
-  companyTopRow:{ flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerLogo:   { width: 56, height: 56, objectFit: 'contain' },
+  // Left: company info.
+  // space-between reparte el alto sobrante: la rejilla de la derecha mide más que estos
+  // renglones, y sin esto quedaba una banda muerta debajo del domicilio.
+  companyBlock: { flex: 1, paddingRight: 10, justifyContent: 'space-between' },
+  companyTopRow:{ flexDirection: 'row', alignItems: 'center', gap: 9 },
+  headerLogo:   { width: 68, height: 68, objectFit: 'contain', flexShrink: 0 },
   companyNameWrap: { flex: 1 },
-  companyName:  { fontSize: 17, fontFamily: 'Helvetica-Bold', color: BLUE, letterSpacing: 0.3 },
-  companyRfc:   { fontSize: 7, color: '#333', marginTop: 1 },
-  companyLine:  { fontSize: 6.5, color: '#333', marginTop: 1.5 },
+  companyName:  { fontFamily: 'Helvetica-Bold', color: BLUE, letterSpacing: 0.3 },
+  companyRfc:   { fontSize: 7.5, color: '#333', marginTop: 2 },
+  companyLine:  { fontSize: 7.3, color: '#333', marginTop: 2 },
 
   // Right: 2 rows × 3 boxes, each with a solid blue header strip
   metaGrid:    { flexDirection: 'column', gap: 4 },
   metaRow:     { flexDirection: 'row', gap: 4 },
-  metaBox:     { borderWidth: 1, borderColor: BLUE, width: 114 },
-  metaBoxWide: { borderWidth: 1, borderColor: BLUE, width: 350 },
+  metaBox:     { borderWidth: 1, borderColor: BLUE, width: 122 },
+  metaBoxWide: { borderWidth: 1, borderColor: BLUE, width: 374 },
   metaHead:    { backgroundColor: BLUE, paddingVertical: 2, paddingHorizontal: 2, minHeight: 18, justifyContent: 'center' },
-  metaHeadText:{ fontSize: 5.6, color: '#fff', fontFamily: 'Helvetica-Bold', letterSpacing: 0.4, textAlign: 'center' },
-  metaBody:    { paddingVertical: 3, paddingHorizontal: 4, minHeight: 20, justifyContent: 'center' },
+  metaHeadText:{ fontSize: 6, color: '#fff', fontFamily: 'Helvetica-Bold', letterSpacing: 0.4, textAlign: 'center' },
+  metaBody:    { paddingVertical: 3, paddingHorizontal: 4, minHeight: 21, justifyContent: 'center' },
   metaValue:   { fontSize: 8 },
 
   // Folio (red number on white, blue header strip)
@@ -88,6 +90,15 @@ function fmtDate(iso: string) {
 
 const MIN_ROWS = 12
 
+// El nombre del encabezado tiene 291pt de ancho útil en horizontal (lo que queda tras el logo
+// y la rejilla de cajas). A 17pt caben ~28 caracteres; "CLAUDIA VANESSA PEREZ SANCHEZ" en
+// mayúsculas mide 319pt y se partiría en dos renglones. Se achica en vez de partirse.
+function companyNameSize(name: string) {
+  if (name.length <= 24) return 17
+  if (name.length <= 30) return 14.5
+  return 12.5
+}
+
 interface Props {
   remission: RemissionDto
   settings: CompanySettingsDto
@@ -98,6 +109,9 @@ interface Props {
 export function RemisionPdf({ remission, settings, isbnByProductId = {}, orientation = 'landscape' }: Props) {
   const emptyRows = Math.max(0, MIN_ROWS - remission.details.length)
 
+  // El nombre del titular (o la razón social) es el que va junto al RFC, como en el formato de
+  // papel. El nombre comercial es el respaldo: el logo ya lo lleva impreso.
+  const headerName = settings.companyName || settings.brandName
   const logo = settings.logoBase64 || ''
   const phones = [settings.phone1, settings.phone2].filter(Boolean).join('  |  ')
   const addressLine = [settings.address, settings.postalCode, settings.city, settings.state].filter(Boolean).join(', ')
@@ -113,7 +127,7 @@ export function RemisionPdf({ remission, settings, isbnByProductId = {}, orienta
             <View style={s.companyTopRow}>
               {logo ? <Image src={logo} style={s.headerLogo} /> : null}
               <View style={s.companyNameWrap}>
-                <Text style={s.companyName}>{settings.companyName || settings.brandName}</Text>
+                <Text style={[s.companyName, { fontSize: companyNameSize(headerName) }]}>{headerName}</Text>
                 {settings.rfc ? <Text style={s.companyRfc}>R.F.C. {settings.rfc}</Text> : null}
               </View>
             </View>
