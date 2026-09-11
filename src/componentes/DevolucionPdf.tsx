@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 import type { ReturnNoteDto } from '../servicios/devolucionesServicio'
 import type { CompanySettingsDto } from '../servicios/settingsServicio'
+import { nombreEncabezado, tamanoNombre } from '../utils/pdfEncabezado'
 import type { CustomerDto } from '../servicios/clientesServicio'
 
 const BLUE = '#1A4FA0'
@@ -15,20 +16,20 @@ const s = StyleSheet.create({
 
   // Left: company info
   companyBlock: { flex: 1, paddingRight: 10 },
-  companyTopRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerLogo: { width: 56, height: 56, objectFit: 'contain' },
+  companyTopRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  headerLogo: { width: 62, height: 62, objectFit: 'contain', flexShrink: 0 },
   companyNameWrap: { flex: 1 },
-  companyName: { fontSize: 17, fontFamily: 'Helvetica-Bold', color: BLUE, letterSpacing: 0.3 },
-  companyRfc: { fontSize: 7, color: '#333', marginTop: 1 },
-  companyLine: { fontSize: 6.5, color: '#333', marginTop: 1.5 },
+  companyName: { fontFamily: 'Helvetica-Bold', color: BLUE, letterSpacing: 0.3 },
+  companyRfc: { fontSize: 7.5, color: '#333', marginTop: 2 },
+  companyLine: { fontSize: 7.3, color: '#333', marginTop: 2 },
 
   // Right: 3 boxes with a solid blue header strip
   metaGrid: { flexDirection: 'column', justifyContent: 'center' },
   metaRow: { flexDirection: 'row', gap: 4 },
   metaBox: { borderWidth: 1, borderColor: BLUE, width: 114 },
   metaHead: { backgroundColor: BLUE, paddingVertical: 2, paddingHorizontal: 2, minHeight: 18, justifyContent: 'center' },
-  metaHeadText: { fontSize: 5.6, color: '#fff', fontFamily: 'Helvetica-Bold', letterSpacing: 0.4, textAlign: 'center' },
-  metaBody: { paddingVertical: 3, paddingHorizontal: 4, minHeight: 20, justifyContent: 'center' },
+  metaHeadText: { fontSize: 6, color: '#fff', fontFamily: 'Helvetica-Bold', letterSpacing: 0.4, textAlign: 'center' },
+  metaBody: { paddingVertical: 3, paddingHorizontal: 4, minHeight: 21, justifyContent: 'center' },
   metaValue: { fontSize: 8, textAlign: 'center' },
   folioValue: { fontSize: 16, color: RED, fontFamily: 'Helvetica-Bold', letterSpacing: 1, textAlign: 'center' },
 
@@ -66,7 +67,9 @@ const s = StyleSheet.create({
   obsText: { fontSize: 7 },
   signBlock: { width: 160, flexDirection: 'column', justifyContent: 'flex-end' },
   signLine: { borderTopWidth: 1.5, borderTopColor: BLUE, paddingTop: 3, textAlign: 'center', fontSize: 6.5, color: BLUE, fontFamily: 'Helvetica-Bold' },
-  signName: { fontSize: 7, textAlign: 'center', marginBottom: 22 },
+  // El margen inferior es el espacio para firmar a mano encima de la raya. 22pt dejaban el
+  // nombre flotando muy arriba; 12 lo acercan sin quitarle sitio a la firma.
+  signName: { fontSize: 7, textAlign: 'center', marginBottom: 12 },
 
   // ── Totals ───────────────────────────────────────────────────────────────────
   totalsBlock: { width: 165, flexDirection: 'column', justifyContent: 'flex-end' },
@@ -84,7 +87,10 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-const MIN_ROWS = 12
+// Filas vacías hasta abajo de la hoja, igual que en la remisión. El límite medido —donde el pie
+// se brinca a una segunda página— es 23 en horizontal y 33 en vertical; se dejan dos de margen
+// porque un título largo hace crecer su renglón.
+const MIN_ROWS = { landscape: 21, portrait: 31 } as const
 
 interface Props {
   returnNote: ReturnNoteDto
@@ -95,7 +101,12 @@ interface Props {
 }
 
 export function DevolucionPdf({ returnNote, settings, customer, teacherByProduct = {}, orientation = 'landscape' }: Props) {
-  const emptyRows = Math.max(0, MIN_ROWS - returnNote.details.length)
+  const emptyRows = Math.max(0, MIN_ROWS[orientation] - returnNote.details.length)
+
+  // Ancho que le queda al nombre: el útil de la hoja menos las tres cajas de la derecha, su
+  // separación, el logo y su hueco. Carta da 752pt de ancho en horizontal y 572 en vertical.
+  const NAME_WIDTH = (orientation === 'landscape' ? 752 : 572) - (114 * 3 + 8) - 10 - 62 - 9
+  const headerName = nombreEncabezado(settings)
 
   const logo = settings.logoBase64 || ''
   const phones = [settings.phone1, settings.phone2].filter(Boolean).join('  |  ')
@@ -112,7 +123,7 @@ export function DevolucionPdf({ returnNote, settings, customer, teacherByProduct
             <View style={s.companyTopRow}>
               {logo ? <Image src={logo} style={s.headerLogo} /> : null}
               <View style={s.companyNameWrap}>
-                <Text style={s.companyName}>{settings.companyName || settings.brandName}</Text>
+                <Text style={[s.companyName, { fontSize: tamanoNombre(headerName, NAME_WIDTH) }]}>{headerName}</Text>
                 {settings.rfc ? <Text style={s.companyRfc}>R.F.C. {settings.rfc}</Text> : null}
               </View>
             </View>

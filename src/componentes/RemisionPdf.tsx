@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 import type { RemissionDto } from '../servicios/remisionesServicio'
 import type { CompanySettingsDto } from '../servicios/settingsServicio'
+import { nombreEncabezado, tamanoNombre } from '../utils/pdfEncabezado'
 
 const BLUE = '#1A4FA0'
 const GRID = '#aebfdb'
@@ -82,7 +83,9 @@ const s = StyleSheet.create({
   obsText:      { fontSize: 7 },
   signBlock:    { width: 160, flexDirection: 'column', justifyContent: 'flex-end' },
   signLine:     { borderTopWidth: 1.5, borderTopColor: BLUE, paddingTop: 3, textAlign: 'center', fontSize: 6.5, color: BLUE, fontFamily: 'Helvetica-Bold' },
-  signName:     { fontSize: 7, textAlign: 'center', marginBottom: 22 },
+  // El margen inferior es el espacio para firmar a mano encima de la raya. 22pt dejaban el
+  // nombre flotando muy arriba; 12 lo acercan sin quitarle sitio a la firma.
+  signName:     { fontSize: 7, textAlign: 'center', marginBottom: 12 },
 
   // ── Totals ───────────────────────────────────────────────────────────────────
   totalsBlock:  { width: 165, flexDirection: 'column', justifyContent: 'flex-end' },
@@ -113,19 +116,6 @@ function nameWidth(l: (typeof LAYOUT)[keyof typeof LAYOUT]) {
   return l.usableWidth - (l.poWidth + l.colWidth * 3 + 12) - 10 - 62 - 9
 }
 
-// El nombre se achica en vez de partirse en dos renglones.
-//
-// Los factores salen de medir Helvetica-Bold: "CLAUDIA VANESSA PEREZ SANCHEZ" ocupa 319pt a
-// 17pt (0.647 por carácter y punto) y el mismo nombre en minúsculas solo 267 (0.542). Vale la
-// pena distinguirlos: con un único factor conservador, un nombre normal se achicaba de más.
-function companyNameSize(name: string, available: number) {
-  const factor = name === name.toUpperCase() ? 0.66 : 0.56
-  for (const size of [17, 15, 13, 11.5, 10]) {
-    if (name.length * size * factor <= available) return size
-  }
-  return 10
-}
-
 interface Props {
   remission: RemissionDto
   settings: CompanySettingsDto
@@ -139,9 +129,7 @@ export function RemisionPdf({ remission, settings, isbnByProductId = {}, orienta
   // fijas y el documento terminaba a media página.
   const emptyRows = Math.max(0, layout.minRows - remission.details.length)
 
-  // El nombre del titular (o la razón social) es el que va junto al RFC, como en el formato de
-  // papel. El nombre comercial es el respaldo: el logo ya lo lleva impreso.
-  const headerName = settings.companyName || settings.brandName
+  const headerName = nombreEncabezado(settings)
   const logo = settings.logoBase64 || ''
   const phones = [settings.phone1, settings.phone2].filter(Boolean).join('  |  ')
   const addressLine = [settings.address, settings.postalCode, settings.city, settings.state].filter(Boolean).join(', ')
@@ -157,7 +145,7 @@ export function RemisionPdf({ remission, settings, isbnByProductId = {}, orienta
             <View style={s.companyTopRow}>
               {logo ? <Image src={logo} style={s.headerLogo} /> : null}
               <View style={s.companyNameWrap}>
-                <Text style={[s.companyName, { fontSize: companyNameSize(headerName, nameWidth(layout)) }]}>{headerName}</Text>
+                <Text style={[s.companyName, { fontSize: tamanoNombre(headerName, nameWidth(layout)) }]}>{headerName}</Text>
                 {settings.rfc ? <Text style={s.companyRfc}>R.F.C. {settings.rfc}</Text> : null}
               </View>
             </View>

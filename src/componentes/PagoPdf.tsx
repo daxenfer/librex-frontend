@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 import type { PaymentDto } from '../servicios/pagosServicio'
 import type { CompanySettingsDto } from '../servicios/settingsServicio'
+import { nombreEncabezado, tamanoNombre } from '../utils/pdfEncabezado'
 
 const BLUE = '#003087'
 const RED = '#C42026'
@@ -11,8 +12,8 @@ const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'stretch', marginBottom: 14, borderBottom: `2.5px solid ${BLUE}`, paddingBottom: 10 },
   companyBlock: { flex: 1, paddingRight: 10 },
   companyTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  headerLogo: { width: 46, height: 46, objectFit: 'contain', marginRight: 8 },
-  companyName: { fontSize: 18, fontFamily: 'Helvetica-Bold', color: BLUE, letterSpacing: 0.5 },
+  headerLogo: { width: 54, height: 54, objectFit: 'contain', marginRight: 8, flexShrink: 0 },
+  companyName: { fontFamily: 'Helvetica-Bold', color: BLUE, letterSpacing: 0.5 },
   companyRfc: { fontSize: 8, color: '#333', marginTop: 1 },
   companyLine: { fontSize: 7.5, color: '#444', marginTop: 1 },
 
@@ -140,6 +141,11 @@ function MethodItem({ label, checked, value, noCheckbox }: { label: string; chec
 }
 
 export function PagoPdf({ payment, settings }: Props) {
+  // El recibo es carta vertical con 34pt de margen a cada lado: 544pt útiles, menos las dos
+  // cajas de la derecha (120 + 90 + 5), su separación, el logo y su hueco.
+  const NAME_WIDTH = 544 - (120 + 90 + 5) - 10 - 54 - 8
+  const headerName = nombreEncabezado(settings)
+
   const logo = settings.logoBase64 || ''
   const phones = [settings.phone1, settings.phone2].filter(Boolean).join('  |  ')
   const addressLine = [settings.address, settings.postalCode, settings.city, settings.state].filter(Boolean).join(', ')
@@ -165,7 +171,7 @@ export function PagoPdf({ payment, settings }: Props) {
             <View style={s.companyTopRow}>
               {logo ? <Image src={logo} style={s.headerLogo} /> : null}
               <View>
-                <Text style={s.companyName}>{settings.companyName || settings.brandName}</Text>
+                <Text style={[s.companyName, { fontSize: tamanoNombre(headerName, NAME_WIDTH, 18) }]}>{headerName}</Text>
                 {settings.rfc ? <Text style={s.companyRfc}>R.F.C. {settings.rfc}</Text> : null}
               </View>
             </View>
