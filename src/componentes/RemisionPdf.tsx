@@ -32,13 +32,13 @@ const s = StyleSheet.create({
   // nombre ocupa uno o dos renglones.
   metaGrid:    { flexDirection: 'row', gap: 4 },
   metaCol:     { width: 106, flexDirection: 'column', gap: 3 },
-  metaColPo:   { width: 90, flexDirection: 'column' },
+  // La orden de compra es una celda igual a las de arriba y no se estira: debajo queda el
+  // espacio en blanco, como en el formato de papel.
+  metaColPo:   { width: 90, flexDirection: 'column', justifyContent: 'flex-start' },
   metaBox:     { borderWidth: 1, borderColor: BLUE },
-  metaBoxTall: { borderWidth: 1, borderColor: BLUE, flex: 1 },
   metaHead:    { backgroundColor: BLUE, paddingVertical: 2, paddingHorizontal: 2, minHeight: 18, justifyContent: 'center' },
   metaHeadText:{ fontSize: 6, color: '#fff', fontFamily: 'Helvetica-Bold', letterSpacing: 0.4, textAlign: 'center' },
   metaBody:    { paddingVertical: 3, paddingHorizontal: 4, minHeight: 21, justifyContent: 'center' },
-  metaBodyTall:{ paddingVertical: 3, paddingHorizontal: 4, flex: 1, justifyContent: 'center' },
   metaValue:   { fontSize: 8 },
 
   // Celda inferior: sin franja, con la etiqueta chica arriba a la izquierda.
@@ -175,9 +175,9 @@ export function RemisionPdf({ remission, settings, isbnByProductId = {}, orienta
               que era lo que estiraba el encabezado. */}
           <View style={s.metaGrid}>
             <View style={[s.metaColPo, { width: layout.poWidth }]}>
-              <View style={s.metaBoxTall}>
+              <View style={s.metaBox}>
                 <View style={s.metaHead}><Text style={s.metaHeadText}>ORDEN DE COMPRA</Text></View>
-                <View style={s.metaBodyTall}><Text style={s.metaValue}>{remission.purchaseOrder ?? ''}</Text></View>
+                <View style={s.metaBody}><Text style={s.metaValue}>{remission.purchaseOrder ?? ''}</Text></View>
               </View>
             </View>
 
