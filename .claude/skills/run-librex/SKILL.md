@@ -6,7 +6,7 @@ description: Levantar, correr, manejar y tomar capturas de Librex (frontend Reac
 # Correr Librex
 
 Librex son **dos repos que solo funcionan juntos**: este frontend (React + Vite, puerto
-5173) y `../librex-backend` (.NET 9 + Postgres, puerto 5176). El frontend proxea `/api`
+5173) y `../librex-backend` (.NET 10 + Postgres, puerto 5176). El frontend proxea `/api`
 al backend, así que levantar uno solo no sirve de nada.
 
 Se maneja con dos drivers que viven aquí:
@@ -20,7 +20,7 @@ Las rutas de este documento son relativas a `librex-frontend/`.
 
 ## Prerrequisitos
 
-Node 20+, pnpm y .NET 9 SDK. Postgres local escuchando en **5433** con la base `librex_dev`.
+Node 20+, pnpm y .NET 10 SDK. Postgres local escuchando en **5433** con la base `librex_dev`.
 
 ```bash
 export NODE_OPTIONS=--use-system-ca   # certificados corporativos: sin esto pnpm falla
@@ -96,7 +96,8 @@ node .claude/skills/run-librex/driver.mjs clean
 ## Ruta humana
 
 `pnpm dev` y abrir http://localhost:5173. Login: `superadmin` / `Admin1234!*`, rol `SuperAdmin` (viene de
-`DbInitializer.cs`). El backend abre una pestaña de Swagger solo en Development.
+`DatabaseInitializer.cs`). El backend abre la documentación en `/scalar`, solo en Development
+o si se prende `ApiDocs:Enabled`.
 
 ## Gotchas
 

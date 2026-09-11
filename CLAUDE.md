@@ -8,7 +8,7 @@ Sistema de distribución de libros — interfaz de usuario React.
 
 ## Arquitectura (resumen)
 - **Dos repos**: este frontend (`librex-frontend`, puerto 5173) y el backend **vigente**
-  `../librex-backend` (.NET 9 + EF Core + PostgreSQL local en `localhost:5433`, puerto 5176).
+  `../librex-backend` (.NET 10 + EF Core + PostgreSQL local en `localhost:5433`, puerto 5176).
   ⚠️ Ignorar la copia vieja `../Librex/backend`.
 - **Backend** en Clean Architecture: `Librex.Domain` (entidades/interfaces), `Librex.Application`
   (`UseCases/` + `DTOs/`), `Librex.Infrastructure` (EF: `LibrexDbContext`, `Configurations/`,

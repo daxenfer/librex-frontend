@@ -9,7 +9,7 @@ Librex son **dos proyectos** que corren juntos en local:
 | Proyecto | Carpeta | Stack | Puerto |
 |---|---|---|---|
 | Frontend (este repo) | `librex-frontend` | React + Vite + TypeScript, pnpm | 5173 |
-| Backend (vigente) | `../librex-backend` | .NET 9 (ASP.NET Core) + EF Core + PostgreSQL | 5176 |
+| Backend (vigente) | `../librex-backend` | .NET 10 (ASP.NET Core) + EF Core + PostgreSQL | 5176 |
 
 > ⚠️ Existe una copia vieja del backend en `../Librex/backend` que **no se usa**. El backend
 > vigente es `../librex-backend`.
@@ -101,7 +101,7 @@ Backend (`../librex-backend`):
 ```powershell
 $env:ASPNETCORE_ENVIRONMENT = "Development"
 dotnet ef database update --project Librex.Infrastructure --startup-project Librex.API  # migraciones
-dotnet run --project Librex.API --launch-profile http   # http://localhost:5176 (Swagger en /swagger)
+dotnet run --project Librex.API --launch-profile http   # http://localhost:5176 (documentación en /scalar)
 ```
 Frontend (este repo):
 ```powershell
