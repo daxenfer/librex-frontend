@@ -10,8 +10,10 @@ import { returnNoteService, type ReturnNoteDto } from '../servicios/devoluciones
 import { exportToExcel } from '../utils/exportarExcel'
 import { downloadReturnNotePdf, printReturnNotePdf, printReturnNotePdfVertical } from '../utils/devolucionPdf'
 import { ConfirmDeleteModal } from '../componentes/ConfirmarBorradoModal'
+import { useAuth } from '../contextos/AuthContexto'
 
 export function ReturnsPage() {
+  const { can } = useAuth()
   const navigate = useNavigate()
   const [returns, setReturns] = useState<ReturnNoteDto[]>([])
   const [loading, setLoading] = useState(true)
@@ -68,12 +70,12 @@ export function ReturnsPage() {
           <button style={btnReceipt} title="Descargar PDF" onClick={() => downloadReturnNotePdf(row.original)}><BsFileEarmarkPdf size={15} /></button>
           <button style={btnPrint} title="Imprimir horizontal" onClick={() => printReturnNotePdf(row.original)}><BsPrinter size={15} /></button>
           <button style={btnPrint} title="Imprimir vertical" onClick={() => printReturnNotePdfVertical(row.original)}><BsPrinter size={15} style={{ transform: 'rotate(90deg)' }} /></button>
-          <button style={btnEdit} title="Editar" onClick={() => navigate(`/returns/${row.original.id}/edit`)}><BsPencilSquare size={15} /></button>
-          <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>
+          {can('returns.write') && <button style={btnEdit} title="Editar" onClick={() => navigate(`/returns/${row.original.id}/edit`)}><BsPencilSquare size={15} /></button>}
+          {can('returns.delete') && <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>}
         </div>
       ),
     },
-  ], [])
+  ], [can])
 
   const table = useReactTable({
     data: returns, columns,
@@ -92,7 +94,7 @@ export function ReturnsPage() {
         <div className="toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem' }}>
           <input style={searchInput} placeholder="Buscar devoluciones..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} />
           <button style={btnExcel} onClick={downloadExcel} disabled={loading || returns.length === 0}>Descargar Excel</button>
-          <button style={btnPrimary} onClick={() => navigate('/returns/new')}>+ Nueva devolución</button>
+          {can('returns.write') && <button style={btnPrimary} onClick={() => navigate('/returns/new')}>+ Nueva devolución</button>}
         </div>
         {loading ? <p>Cargando...</p> : (
           <>

@@ -15,6 +15,7 @@ import { PaymentForm } from './paginas/PagoFormulario'
 import { AccountsReceivablePage } from './paginas/CuentasPorCobrarPagina'
 import { ReportsPage } from './paginas/ReportesPagina'
 import { SettingsPage } from './paginas/AjustesPagina'
+import { UsersPage } from './paginas/UsuariosPagina'
 
 function App() {
   return (
@@ -38,7 +39,14 @@ function App() {
               <Route path="/payments/:id/edit" element={<PaymentForm />} />
               <Route path="/receivables" element={<AccountsReceivablePage />} />
               <Route path="/reports" element={<ReportsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
+
+              {/* Rutas restringidas por permiso: sin él, ProtectedRoute regresa a /remissions. */}
+              <Route element={<ProtectedRoute permission="settings.manage" />}>
+                <Route path="/settings" element={<SettingsPage />} />
+              </Route>
+              <Route element={<ProtectedRoute permission="users.manage" />}>
+                <Route path="/users" element={<UsersPage />} />
+              </Route>
             </Route>
           </Route>
           <Route path="/" element={<Navigate to="/remissions" replace />} />

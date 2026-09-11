@@ -9,8 +9,10 @@ import { BsPencilSquare, BsTrash, BsFileEarmarkPdf, BsPrinter } from 'react-icon
 import { paymentService, type PaymentDto } from '../servicios/pagosServicio'
 import { downloadPaymentPdf, printPaymentPdf } from '../utils/pagoPdf'
 import { ConfirmDeleteModal } from '../componentes/ConfirmarBorradoModal'
+import { useAuth } from '../contextos/AuthContexto'
 
 export function PaymentsPage() {
+  const { can } = useAuth()
   const navigate = useNavigate()
   const [payments, setPayments] = useState<PaymentDto[]>([])
   const [loading, setLoading] = useState(true)
@@ -61,12 +63,12 @@ export function PaymentsPage() {
         <div style={{ display: 'flex', gap: '0.4rem' }}>
           <button style={btnReceipt} title="Descargar PDF" onClick={() => downloadPaymentPdf(row.original)}><BsFileEarmarkPdf size={15} /></button>
           <button style={btnPrint} title="Imprimir" onClick={() => printPaymentPdf(row.original)}><BsPrinter size={15} /></button>
-          <button style={btnEdit} title="Editar" onClick={() => navigate(`/payments/${row.original.id}/edit`)}><BsPencilSquare size={15} /></button>
-          <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>
+          {can('payments.write') && <button style={btnEdit} title="Editar" onClick={() => navigate(`/payments/${row.original.id}/edit`)}><BsPencilSquare size={15} /></button>}
+          {can('payments.delete') && <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>}
         </div>
       ),
     },
-  ], [])
+  ], [can])
 
   const table = useReactTable({
     data: payments, columns,
@@ -84,7 +86,7 @@ export function PaymentsPage() {
       <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
         <div className="toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem' }}>
           <input style={searchInput} placeholder="Buscar pagos..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} />
-          <button style={btnPrimary} onClick={() => navigate('/payments/new')}>+ Nuevo pago</button>
+          {can('payments.write') && <button style={btnPrimary} onClick={() => navigate('/payments/new')}>+ Nuevo pago</button>}
         </div>
         {loading ? <p>Cargando...</p> : (
           <>

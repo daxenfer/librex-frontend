@@ -55,7 +55,7 @@ export function CantidadesReportePdf({ reports, filtroProveedor }: Props) {
       <Page size="A4" orientation="landscape" style={s.page}>
         <Text style={s.title}>Reporte: Cantidades por producto</Text>
         <Text style={s.subtitle}>
-          {filtroProveedor ? `Proveedor: ${filtroProveedor}` : 'Todos los proveedores'} — Generado el {fecha}
+          {filtroProveedor ? `Editorial: ${filtroProveedor}` : 'Todas las editoriales'} — Generado el {fecha}
         </Text>
 
         {reports.map(report => (

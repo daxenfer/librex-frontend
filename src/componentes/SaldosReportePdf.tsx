@@ -42,7 +42,7 @@ export function SaldosReportePdf({ reports, filtroProveedor, unallocated, unlink
       <Page size="A4" style={s.page}>
         <Text style={s.title}>Reporte: Saldos por cliente</Text>
         <Text style={s.subtitle}>
-          {filtroProveedor ? `Proveedor: ${filtroProveedor}` : 'Todos los proveedores'} — Generado el {fecha}
+          {filtroProveedor ? `Editorial: ${filtroProveedor}` : 'Todas las editoriales'} — Generado el {fecha}
         </Text>
 
         {reports.map(report => (
@@ -103,7 +103,7 @@ export function SaldosReportePdf({ reports, filtroProveedor, unallocated, unlink
               </View>
             </View>
             <Text style={{ fontSize: 6.5, color: '#888', marginTop: 4 }}>
-              Sin remision no hay venta a la cual atribuirlas: no se restan del saldo de ningun proveedor.
+              Sin remision no hay venta a la cual atribuirlas: no se restan del saldo de ninguna editorial.
             </Text>
           </View>
         )}
@@ -134,7 +134,7 @@ export function SaldosReportePdf({ reports, filtroProveedor, unallocated, unlink
               </View>
             </View>
             <Text style={{ fontSize: 6.5, color: '#888', marginTop: 4 }}>
-              Estos montos no son atribuibles a ningun proveedor hasta que se apliquen a remisiones.
+              Estos montos no son atribuibles a ninguna editorial hasta que se apliquen a remisiones.
             </Text>
           </View>
         )}

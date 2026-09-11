@@ -14,8 +14,10 @@ import { productService, type ProductDto, type CreateProductDto, type UpdateProd
 import { ProductForm } from '../componentes/ProductoFormulario'
 import { exportToExcel } from '../utils/exportarExcel'
 import { ConfirmDeleteModal } from '../componentes/ConfirmarBorradoModal'
+import { useAuth } from '../contextos/AuthContexto'
 
 export function ProductsPage() {
+  const { can } = useAuth()
   const [products, setProducts] = useState<ProductDto[]>([])
   const [selected, setSelected] = useState<ProductDto | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -42,7 +44,7 @@ export function ProductsPage() {
         'ISBN': p.isbn ?? '',
         'Nivel': p.schoolLevel ?? '',
         'Unidad': p.unitType ?? '',
-        'Proveedor': p.supplierName ?? '',
+        'Editorial': p.supplierName ?? '',
       })),
       'productos'
     )
@@ -83,7 +85,7 @@ export function ProductsPage() {
     },
     {
       accessorKey: 'supplierName',
-      header: 'Proveedor',
+      header: 'Editorial',
       cell: info => info.getValue() ?? '—',
     },
     {
@@ -92,12 +94,12 @@ export function ProductsPage() {
       enableSorting: false,
       cell: ({ row }) => (
         <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button style={btnEdit} title="Editar" onClick={() => openEdit(row.original)}><BsPencilSquare size={15} /></button>
-          <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>
+          {can('products.write') && <button style={btnEdit} title="Editar" onClick={() => openEdit(row.original)}><BsPencilSquare size={15} /></button>}
+          {can('products.delete') && <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>}
         </div>
       ),
     },
-  ], [])
+  ], [can])
 
   const table = useReactTable({
     data: products,
@@ -128,7 +130,7 @@ export function ProductsPage() {
             onChange={e => setGlobalFilter(e.target.value)}
           />
           <button style={btnExcel} onClick={downloadExcel} disabled={loading || products.length === 0}>Descargar Excel</button>
-          <button style={btnPrimary} onClick={openNew}>+ Nuevo producto</button>
+          {can('products.write') && <button style={btnPrimary} onClick={openNew}>+ Nuevo producto</button>}
         </div>
 
         {loading ? <p>Cargando...</p> : (

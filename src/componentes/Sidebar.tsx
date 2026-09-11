@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../contextos/AuthContexto'
+import { roleLabel, type Permission } from '../contextos/permisos'
 import { useNavigate } from 'react-router-dom'
 import './sidebar.css'
 
@@ -7,6 +8,8 @@ interface NavItem {
   path: string
   label: string
   icon: string
+  // Sin permiso, el ítem lo ve cualquier usuario autenticado: leer no requiere permiso.
+  permission?: Permission
 }
 
 interface NavGroup {
@@ -18,7 +21,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Catálogos',
     items: [
-      { path: '/suppliers', label: 'Proveedores', icon: '🏢' },
+      { path: '/suppliers', label: 'Editoriales', icon: '🏢' },
       { path: '/products',   label: 'Productos',   icon: '📦' },
       { path: '/customers',  label: 'Clientes',    icon: '👥' },
     ],
@@ -40,7 +43,8 @@ const navGroups: NavGroup[] = [
   {
     label: 'Sistema',
     items: [
-      { path: '/settings', label: 'Configuración', icon: '⚙️' },
+      { path: '/settings', label: 'Configuración', icon: '⚙️', permission: 'settings.manage' },
+      { path: '/users',    label: 'Usuarios',      icon: '🔑', permission: 'users.manage' },
     ],
   },
 ]
@@ -58,10 +62,16 @@ interface Props {
 }
 
 export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile }: Props) {
-  const { user, logout } = useAuth()
+  const { user, can, logout } = useAuth()
   const navigate = useNavigate()
 
   const signOut = () => { logout(); navigate('/login', { replace: true }) }
+
+  // Un grupo que se queda sin ítems no se dibuja: al rol operativo le desaparece "Sistema"
+  // completo en vez de quedarle un encabezado vacío.
+  const visibleGroups = navGroups
+    .map(group => ({ ...group, items: group.items.filter(i => !i.permission || can(i.permission)) }))
+    .filter(group => group.items.length > 0)
 
   const sidebarClass = [
     'sidebar',
@@ -88,7 +98,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: '0.5rem 0', overflowY: 'auto' }}>
-          {navGroups.map((group, gi) => (
+          {visibleGroups.map((group, gi) => (
             <div key={group.label}>
               {gi > 0 && <hr className="sidebar-divider" />}
               <div className="sidebar-section-label sidebar-label">{group.label}</div>
@@ -131,8 +141,15 @@ export function Sidebar({ collapsed, mobileOpen, onToggleCollapse, onCloseMobile
         {/* User */}
         <div style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
           {!collapsed && (
-            <div style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {user?.fullName}
+            <div style={{ marginBottom: '0.5rem', overflow: 'hidden' }}>
+              <div style={{ fontSize: '0.8rem', color: '#aaa', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                {user?.fullName}
+              </div>
+              {user && (
+                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap' }}>
+                  {roleLabel(user.role)}
+                </div>
+              )}
             </div>
           )}
           <button

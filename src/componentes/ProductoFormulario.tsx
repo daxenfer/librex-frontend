@@ -99,9 +99,9 @@ export function ProductForm({ show, product, onSave, onClose }: Props) {
             </Form.Select>
           </Form.Group>
           <Form.Group className="mb-3">
-            <Form.Label>Proveedor *</Form.Label>
+            <Form.Label>Editorial *</Form.Label>
             <Form.Select value={supplierId} onChange={e => setSupplierId(e.target.value)} required>
-              <option value="" disabled>Seleccionar proveedor...</option>
+              <option value="" disabled>Seleccionar editorial...</option>
               {suppliers.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}

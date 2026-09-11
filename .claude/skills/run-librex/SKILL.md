@@ -50,11 +50,12 @@ node .claude/skills/run-librex/driver.mjs health
 node .claude/skills/run-librex/driver.mjs smoke
 ```
 
-Siembra su propio escenario (proveedor, producto, 2 clientes, 2 remisiones), corre **22
-aserciones** sobre las reglas de negocio que más se rompen, y limpia solo. Cubre: la
-resolución de renglones, el motivo obligatorio en devoluciones sueltas, las guardas de
-"remisión de otro cliente", la separación de lo ligado vs lo suelto en reportes, el reparto
-de pagos, y que el borrado lógico no mutile documentos. Sale con código 1 si algo falla.
+Siembra su propio escenario (proveedor, producto, 2 clientes, 2 remisiones), corre **33
+aserciones** sobre las reglas de negocio y de autorización que más se rompen, y limpia solo.
+Cubre: la resolución de renglones, el motivo obligatorio en devoluciones sueltas, las guardas
+de "remisión de otro cliente", la separación de lo ligado vs lo suelto en reportes, el reparto
+de pagos, que el borrado lógico no mutile documentos, y qué responde la API a cada rol (crea
+un `User` y un `Administrator` al vuelo y verifica los 403). Sale con código 1 si algo falla.
 
 Otros comandos:
 
@@ -77,6 +78,13 @@ Inyecta la sesión en `localStorage` antes de navegar, así que entra directo a 
 protegidas sin pasar por el login. **Después de `shot`, abre el PNG y míralo** — un marco en
 blanco es un fallo de arranque, no un éxito.
 
+Para ver una pantalla con otro rol, pásale credenciales por ambiente: la sesión que inyecta sale
+del login real, así que trae los permisos que le correspondan.
+
+```bash
+LIBREX_USER=operativo LIBREX_PASS=Password123! node .claude/skills/run-librex/browser.mjs shot products operativo.png
+```
+
 Combinación típica para revisar un cambio de UI:
 
 ```bash
@@ -87,7 +95,7 @@ node .claude/skills/run-librex/driver.mjs clean
 
 ## Ruta humana
 
-`pnpm dev` y abrir http://localhost:5173. Login: **admin / Admin1234** (viene de
+`pnpm dev` y abrir http://localhost:5173. Login: `superadmin` / `Admin1234!*`, rol `SuperAdmin` (viene de
 `DbInitializer.cs`). El backend abre una pestaña de Swagger solo en Development.
 
 ## Gotchas
@@ -96,10 +104,25 @@ node .claude/skills/run-librex/driver.mjs clean
   Node como `C:/Program Files/Git/reports` y Chromium responde *"Cannot navigate to invalid
   URL"*. Usa la forma **sin diagonal inicial** (`reports`) o antepón `MSYS_NO_PATHCONV=1`.
   Aplica igual a `driver.mjs api GET /api/...`.
-- **Hay dos cadenas de conexión y una apunta a una base remota compartida.**
-  `appsettings.json` va a `...db.kubiy.com`; solo `appsettings.Development.json` apunta a
-  `localhost:5433`. Si corres sin el ambiente Development le pegas a la base remota. (De
-  paso: esa contraseña está en texto plano en git.)
+- **Los secretos ya no están en `appsettings.json`.** `Jwt:Key` y la cadena de conexión salen de
+  `dotnet user-secrets` en local y de variables de entorno (`Jwt__Key`, `ConnectionStrings__Default`)
+  fuera de desarrollo. Si la API no arranca quejándose de `Jwt:Key`, es que faltan.
+  Ojo: la cadena vieja apuntaba a `...db.kubiy.com` y **su contraseña sigue en el historial de
+  git**, así que hay que rotarla en el proveedor.
+- **El historial de migraciones local se compactó a `InitialCreate` + `LoginSecurity`; la base
+  remota sigue con las 25 viejas**, así que antes de desplegar hay que realinear su
+  `__EFMigrationsHistory` o el `MigrateAsync()` del arranque truena.
+- **El login tiene bloqueo y límite de peticiones.** 10 intentos fallidos bloquean la cuenta 15
+  minutos, y son 20 peticiones por minuto por IP. Si al probar a mano empiezas a ver 401 con la
+  contraseña buena, o 429, es eso: reinicia la API para vaciar el límite por IP, y para el bloqueo
+  espera o corre `UPDATE users SET "LockedOutUntil" = NULL;`.
+- **Un token deja de valer si cambia el usuario.** El sello (`SecurityStamp`) se compara contra la
+  base en cada petición: dar de baja, cambiar rol, nombre de usuario o contraseña invalida las
+  sesiones abiertas de esa cuenta. Una sesión inyectada a mano en `localStorage` deja de servir en
+  cuanto tocas al usuario.
+- **Un usuario dado de baja sigue ocupando su nombre.** El índice único de `users.Username` no
+  distingue activos de inactivos, así que `smoke` les pone un sufijo de timestamp. Si creas
+  usuarios de prueba a mano, no reutilices el nombre.
 - **El borrado es lógico.** `clean` deja filas inactivas y **los folios quedan quemados**:
   suben en cada corrida y nunca se reutilizan. No asercione contra números de folio absolutos.
 - **`GET /api/remissions` no puebla `productName` en los renglones**; solo

@@ -9,8 +9,10 @@ import { supplierService, type SupplierDto, type CreateSupplierDto, type UpdateS
 import { SupplierForm } from '../componentes/ProveedorFormulario'
 import { exportToExcel } from '../utils/exportarExcel'
 import { ConfirmDeleteModal } from '../componentes/ConfirmarBorradoModal'
+import { useAuth } from '../contextos/AuthContexto'
 
 export function SuppliersPage() {
+  const { can } = useAuth()
   const [suppliers, setSuppliers] = useState<SupplierDto[]>([])
   const [selected, setSelected] = useState<SupplierDto | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -23,7 +25,7 @@ export function SuppliersPage() {
   const load = async () => {
     setLoading(true); setError(null)
     try { setSuppliers(await supplierService.getAll()) }
-    catch { setError('No se pudieron cargar las proveedores.') }
+    catch { setError('No se pudieron cargar las editoriales.') }
     finally { setLoading(false) }
   }
 
@@ -37,7 +39,7 @@ export function SuppliersPage() {
         'Teléfono': p.phone ?? '',
         'Email': p.email ?? '',
       })),
-      'proveedores'
+      'editoriales'
     )
   }
 
@@ -61,12 +63,12 @@ export function SuppliersPage() {
       id: 'acciones', header: 'Acciones', enableSorting: false,
       cell: ({ row }) => (
         <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button style={btnEdit} title="Editar" onClick={() => openEdit(row.original)}><BsPencilSquare size={15} /></button>
-          <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>
+          {can('suppliers.write') && <button style={btnEdit} title="Editar" onClick={() => openEdit(row.original)}><BsPencilSquare size={15} /></button>}
+          {can('suppliers.delete') && <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>}
         </div>
       ),
     },
-  ], [])
+  ], [can])
 
   const table = useReactTable({
     data: suppliers, columns,
@@ -79,13 +81,13 @@ export function SuppliersPage() {
 
   return (
     <div className="page-content" style={{ padding: '1.5rem 2rem' }}>
-      <h4 style={{ color: '#1a1a2e', marginBottom: '1.25rem', fontWeight: 700 }}>Proveedores</h4>
+      <h4 style={{ color: '#1a1a2e', marginBottom: '1.25rem', fontWeight: 700 }}>Editoriales</h4>
       {error && <p style={{ color: '#c0392b', marginBottom: '1rem' }}>{error}</p>}
       <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
         <div className="toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem' }}>
-          <input style={searchInput} placeholder="Buscar proveedores..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} />
+          <input style={searchInput} placeholder="Buscar editoriales..." value={globalFilter} onChange={e => setGlobalFilter(e.target.value)} />
           <button style={btnExcel} onClick={downloadExcel} disabled={loading || suppliers.length === 0}>Descargar Excel</button>
-          <button style={btnPrimary} onClick={openNew}>+ Nueva proveedor</button>
+          {can('suppliers.write') && <button style={btnPrimary} onClick={openNew}>+ Nueva editorial</button>}
         </div>
         {loading ? <p>Cargando...</p> : (
           <>
@@ -105,7 +107,7 @@ export function SuppliersPage() {
                 </thead>
                 <tbody>
                   {table.getRowModel().rows.length === 0 ? (
-                    <tr><td colSpan={columns.length} style={{ ...tdStyle, textAlign: 'center', color: '#888', padding: '2rem' }}>No hay proveedores registradas.</td></tr>
+                    <tr><td colSpan={columns.length} style={{ ...tdStyle, textAlign: 'center', color: '#888', padding: '2rem' }}>No hay editoriales registradas.</td></tr>
                   ) : table.getRowModel().rows.map(row => (
                     <tr key={row.id} style={{ borderBottom: '1px solid #eee' }}>
                       {row.getVisibleCells().map(cell => <td key={cell.id} style={tdStyle}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>)}
@@ -121,7 +123,7 @@ export function SuppliersPage() {
                   {[10, 25, 50].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-              <span style={{ fontSize: '0.875rem', color: '#555' }}>Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()} — {table.getFilteredRowModel().rows.length} proveedor(es)</span>
+              <span style={{ fontSize: '0.875rem', color: '#555' }}>Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()} — {table.getFilteredRowModel().rows.length} editorial(es)</span>
               <div style={{ display: 'flex', gap: '0.4rem' }}>
                 <button style={btnPage} onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>← Anterior</button>
                 <button style={btnPage} onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>Siguiente →</button>
@@ -135,7 +137,7 @@ export function SuppliersPage() {
       <ConfirmDeleteModal
         show={toDelete !== null}
         id={toDelete}
-        title="¿Eliminar este proveedor?"
+        title="¿Eliminar esta editorial?"
         onImpact={supplierService.getDeletionImpact}
         onDelete={supplierService.delete}
         onClose={() => setToDelete(null)}

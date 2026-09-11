@@ -16,8 +16,8 @@ import { join } from 'node:path'
 
 const API = process.env.LIBREX_API ?? 'http://localhost:5176'
 const WEB = process.env.LIBREX_WEB ?? 'http://localhost:5173'
-const USER = process.env.LIBREX_USER ?? 'admin'
-const PASS = process.env.LIBREX_PASS ?? 'Admin1234'
+const USER = process.env.LIBREX_USER ?? 'superadmin'
+const PASS = process.env.LIBREX_PASS ?? 'Admin1234!*'
 const PORT = Number(process.env.CDP_PORT ?? 9333)
 
 const CANDIDATES = [

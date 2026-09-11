@@ -310,7 +310,7 @@ export function ReturnNoteForm() {
                   placeholder="Por qué no hay remisión (material de muestra, reposición, etc.)"
                 />
                 <span style={hint}>
-                  Sale en el reporte de devoluciones sin remisión y no se le atribuye a ningún proveedor.
+                  Sale en el reporte de devoluciones sin remisión y no se le atribuye a ninguna editorial.
                 </span>
               </div>
             </div>
@@ -323,7 +323,7 @@ export function ReturnNoteForm() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f0f0f0' }}>
-                  <th style={th}>Proveedor</th>
+                  <th style={th}>Editorial</th>
                   <th style={th}>Título *</th>
                   <th style={{ ...th, width: 90 }}>Cantidad *</th>
                   <th style={{ ...th, width: 110 }}>P. Unitario *</th>

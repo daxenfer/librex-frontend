@@ -67,7 +67,7 @@ export function ProductPickerModal({ show, products, onSelect, onClose }: Props)
             {UNIT_TYPES.map(u => <option key={u} value={u}>{u}</option>)}
           </Form.Select>
           <Form.Select style={filterCtrl} value={supplierId} onChange={e => setSupplierId(e.target.value)}>
-            <option value="">Proveedor: Todos</option>
+            <option value="">Editorial: Todas</option>
             {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Form.Select>
         </div>
@@ -80,7 +80,7 @@ export function ProductPickerModal({ show, products, onSelect, onClose }: Props)
                 <th style={th}>ISBN</th>
                 <th style={th}>Nivel</th>
                 <th style={th}>Unidad</th>
-                <th style={th}>Proveedor</th>
+                <th style={th}>Editorial</th>
               </tr>
             </thead>
             <tbody>

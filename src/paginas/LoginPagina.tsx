@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contextos/AuthContexto'
 import { AnimatedShaderBackground } from '../componentes/AnimatedShaderBackground'
+import { errorMessage } from '../utils/errores'
 
 // Login con fondo animado de shader (aurora WebGL) + tarjeta glass.
 // En móvil / reduce-motion / save-data el shader no se monta: queda el degradado CSS.
@@ -20,8 +21,11 @@ export function LoginPage() {
     try {
       await login(username, password)
       navigate('/remissions', { replace: true })
-    } catch {
-      setError('Credenciales incorrectas. Verificá tu usuario y contraseña.')
+    } catch (err) {
+      // El backend responde lo mismo ante usuario inexistente, contraseña mala o cuenta
+      // bloqueada, así que el mensaje por omisión cubre los tres. Solo el 429 del límite de
+      // intentos trae texto propio, y ese sí conviene mostrarlo.
+      setError(errorMessage(err, 'Credenciales incorrectas. Verificá tu usuario y contraseña.'))
     } finally {
       setLoading(false)
     }

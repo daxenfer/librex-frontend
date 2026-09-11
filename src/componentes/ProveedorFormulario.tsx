@@ -44,7 +44,7 @@ export function SupplierForm({ show, supplier, onSave, onClose }: Props) {
   return (
     <Modal show={show} onHide={onClose} centered>
       <Modal.Header closeButton>
-        <Modal.Title>{supplier ? 'Editar proveedor' : 'Nueva proveedor'}</Modal.Title>
+        <Modal.Title>{supplier ? 'Editar editorial' : 'Nueva editorial'}</Modal.Title>
       </Modal.Header>
       <Form onSubmit={handleSubmit}>
         <Modal.Body>
@@ -57,7 +57,7 @@ export function SupplierForm({ show, supplier, onSave, onClose }: Props) {
               required
               maxLength={200}
               autoFocus
-              placeholder="Nombre de la proveedor"
+              placeholder="Nombre de la editorial"
             />
           </Form.Group>
           <Form.Group className="mb-3">
@@ -90,7 +90,7 @@ export function SupplierForm({ show, supplier, onSave, onClose }: Props) {
               onChange={e => setEmail(e.target.value)}
               required
               maxLength={150}
-              placeholder="correo@proveedor.com"
+              placeholder="correo@editorial.com"
             />
           </Form.Group>
         </Modal.Body>

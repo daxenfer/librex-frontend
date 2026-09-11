@@ -12,8 +12,8 @@
 
 const API = process.env.LIBREX_API ?? 'http://localhost:5176'
 const WEB = process.env.LIBREX_WEB ?? 'http://localhost:5173'
-const USER = process.env.LIBREX_USER ?? 'admin'
-const PASS = process.env.LIBREX_PASS ?? 'Admin1234'
+const USER = process.env.LIBREX_USER ?? 'superadmin'
+const PASS = process.env.LIBREX_PASS ?? 'Admin1234!*'
 const TAG = '[E2E]'
 
 let token = ''
@@ -56,6 +56,14 @@ async function login() {
     process.exit(1)
   }
   token = r.data.token ?? r.data.Token
+}
+
+// Corre un bloque con otra sesión y devuelve el token de admin al terminar, para poder probar
+// qué ve y qué no ve cada rol dentro de la misma corrida.
+async function as(otherToken, fn) {
+  const previous = token
+  token = otherToken
+  try { return await fn() } finally { token = previous }
 }
 
 /* ── health ─────────────────────────────────────────────────────────── */
@@ -220,6 +228,53 @@ async function smoke() {
     details: [{ productId: (await api('GET', '/api/products')).data[0]?.id ?? 1, quantity: 1, unitPrice: 1 }],
   }, 'crear remisión de sondeo').catch(() => null)
   if (probe) ok(probe.folioNumber > nextBefore, `folio ${probe.folioNumber} > ${nextBefore} (no se reutiliza)`)
+
+  console.log('\n[9] Autorización: el rol decide, y decide en el backend')
+  // Nombre irrepetible por corrida: el borrado de usuarios es lógico y el índice único de
+  // users.Username no distingue activos de inactivos, así que un nombre fijo chocaría a la segunda.
+  const stamp = Date.now()
+  const PW = 'Password123!'
+  const operator = await must('POST', '/api/users', {
+    username: `e2e_user_${stamp}`, fullName: `${TAG} Operativo`, role: 'User', password: PW,
+  }, 'crear usuario operativo')
+  const clientAdmin = await must('POST', '/api/users', {
+    username: `e2e_admin_${stamp}`, fullName: `${TAG} Administrador`, role: 'Administrator', password: PW,
+  }, 'crear usuario administrador')
+
+  const operatorSession = (await api('POST', '/api/auth/login',
+    { username: operator.username, password: PW })).data
+  ok(operatorSession.permissions?.includes('remissions.write'), 'el login del rol User trae remissions.write')
+  ok(!operatorSession.permissions?.includes('remissions.delete'), 'y NO trae remissions.delete')
+  ok(!operatorSession.permissions?.includes('users.manage'), 'y NO trae users.manage')
+
+  await as(operatorSession.token, async () => {
+    // Contra el producto que [7] ya dio de baja: si la policy fallara, la respuesta sería 404 y
+    // la aserción truena sin haber borrado nada de nadie.
+    ok((await api('DELETE', `/api/products/${f.product.id}`)).status === 403,
+      'User: DELETE /api/products -> 403')
+    ok((await api('PUT', '/api/settings', { companyName: 'No debería pasar' })).status === 403,
+      'User: PUT /api/settings -> 403')
+    ok((await api('GET', '/api/users')).status === 403, 'User: GET /api/users -> 403')
+
+    const alive = (await api('GET', '/api/products')).data[0]?.id ?? 1
+    const created = await api('POST', '/api/remissions', {
+      customerId: f.customerA.id, deliveryDate: day(0), paymentDueDate: day(30), returnDueDate: day(60),
+      returnPercentage: 0, discountAmount: 0,
+      details: [{ productId: alive, quantity: 1, unitPrice: 100 }],
+    })
+    ok(created.status === 201, `User: POST /api/remissions -> ${created.status} (capturar sí puede)`)
+  })
+
+  const adminSession = (await api('POST', '/api/auth/login',
+    { username: clientAdmin.username, password: PW })).data
+  ok(adminSession.permissions?.includes('remissions.delete'), 'el login del rol Administrator sí trae remissions.delete')
+  await as(adminSession.token, async () => {
+    ok((await api('GET', '/api/users')).status === 403,
+      'Administrator: GET /api/users -> 403 (usuarios es solo del SuperAdmin)')
+  })
+
+  ok((await api('DELETE', `/api/users/${operator.id}`)).status === 204, 'se desactiva el usuario operativo')
+  ok((await api('DELETE', `/api/users/${clientAdmin.id}`)).status === 204, 'se desactiva el usuario administrador')
 
   console.log('\n[limpieza]')
   await clean()

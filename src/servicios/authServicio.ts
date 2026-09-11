@@ -5,6 +5,8 @@ export interface LoginResponse {
   username: string
   fullName: string
   role: string
+  // Ya resueltos desde el rol por el backend. El frontend no conoce la matriz.
+  permissions: string[]
   expiresAt: string
 }
 
@@ -33,7 +35,15 @@ export const authService = {
 
   getUser(): LoginResponse | null {
     const data = localStorage.getItem(USER_KEY)
-    return data ? JSON.parse(data) : null
+    if (!data) return null
+    try {
+      const parsed = JSON.parse(data) as LoginResponse
+      // Una sesión guardada antes de que existieran los permisos se queda sin ninguno, nunca con
+      // todos: si el JSON viene corrupto se trata como que no hay sesión.
+      return { ...parsed, permissions: parsed.permissions ?? [] }
+    } catch {
+      return null
+    }
   },
 
   isAuthenticated(): boolean {

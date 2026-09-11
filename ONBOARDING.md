@@ -40,7 +40,9 @@ Migraciones con `dotnet ef` (ver "Cómo correr").
 
 ## Modelo de dominio
 - **Customer** — cliente (incluye `Contact` opcional).
-- **Supplier** — proveedor (antes "Publisher/Editorial"). Un `Product` pertenece a un `Supplier`.
+- **Supplier** — en pantalla se llama **Editorial** (femenino: "Nueva editorial", "Todas las editoriales").
+  En el código sigue siendo `Supplier`, y los archivos del frontend conservan el nombre viejo
+  (`ProveedoresPagina.tsx`, `proveedoresServicio.ts`). Un `Product` pertenece a un `Supplier`.
 - **Product** — producto/título.
 - **Remission** (remisión) — funciona como **factura**: tiene `Details`, `PaymentDueDate`
   (vencimiento) y `Discount` (**monto fijo**). Total = subtotal − Discount.
@@ -55,6 +57,38 @@ Una remisión está **liquidada** cuando el saldo ≈ 0; **vencida** si saldo > 
 La pantalla **Cuentas por cobrar** (`/receivables`) calcula esto en el frontend
 (`src/servicios/cobranzaServicio.ts`) cruzando remisiones + pagos + devoluciones, y permite
 registrar un cobro repartido entre varias remisiones (`CobranzaClienteModal`).
+
+## Roles y autorización
+Tres roles, de mayor a menor alcance:
+
+| Rol | Quién es | Puede |
+|---|---|---|
+| `SuperAdmin` | el proveedor del sistema | todo, **incluido administrar usuarios** (`/users`) |
+| `Administrator` | el dueño del negocio | todo menos usuarios: captura, **elimina** y edita Configuración |
+| `User` | el operativo | ver y capturar; **no elimina** ni entra a Configuración |
+
+La matriz rol → permisos es única y vive en el backend
+(`../librex-backend/Librex.Domain/Constants/Permissions.cs`). De ahí salen tres cosas: las policies
+que registra `Program.cs` (una por permiso, `[Authorize(Policy = Permissions.ProductsDelete)]`), los
+claims `perm` del JWT, y la lista que el login devuelve en `LoginResponse.permissions`. El frontend
+no conoce la matriz: recibe la lista y pregunta `can('products.delete')`.
+
+Esconder botones es usabilidad, no seguridad — `permissions` está en `localStorage`. La
+autorización real la hace el backend, con el rol que viaja firmado en el token.
+
+## Seguridad de acceso
+El login está protegido en tres capas: **bloqueo por cuenta** (10 intentos fallidos → 15 minutos),
+**límite por IP** (20 peticiones por minuto) y **bitácora** (`login_attempts` guarda todo intento
+con su motivo real, aunque al usuario siempre se le responda lo mismo para no confirmarle qué
+cuentas existen).
+
+Un token deja de valer en cuanto el usuario cambia: el `SecurityStamp` viaja en el JWT y se
+compara contra la base en cada petición, así que dar de baja a alguien, cambiarle el rol o la
+contraseña cierra sus sesiones abiertas al instante.
+
+Los secretos (`Jwt:Key`, cadena de conexión) **no están en el repositorio**: en local van en
+`dotnet user-secrets --project Librex.API` y fuera de desarrollo en variables de entorno
+(`Jwt__Key`, `ConnectionStrings__Default`). Sin `Jwt:Key` la API no arranca, a propósito.
 
 ## Convenciones
 - **Código en inglés** (componentes, funciones, props, servicios); **texto de UI en español**.

@@ -15,9 +15,24 @@ Sistema de distribución de libros — interfaz de usuario React.
   `Migrations/`, `Repositories/`), `Librex.API` (`Controllers/`, `api/<área>`).
 - **Frontend**: `src/paginas`, `src/componentes`, `src/servicios` (axios + DTOs), `src/contextos`
   (auth JWT). Tablas con `@tanstack/react-table`.
-- **Dominio**: Customer · Supplier (proveedor) · Product · Remission (= factura, `Discount` es **monto**)
+- **Dominio**: Customer · Supplier (**"Editorial"** en la UI) · Product · Remission (= factura, `Discount` es **monto**)
   · ReturnNote (devolución) · Payment + **PaymentAllocation** (un pago se reparte en remisiones; el
   remanente es anticipo). Saldo CxC = `total − devoluciones − pagos aplicados`.
+
+## Roles y permisos
+- Tres roles: `SuperAdmin` (el proveedor del sistema — el único que administra usuarios),
+  `Administrator` (dueño del negocio: además borra y configura) y `User` (captura y edita, sin
+  borrar, sin Configuración).
+- La matriz rol → permisos vive **solo en el backend**
+  (`../librex-backend/Librex.Domain/Constants/Permissions.cs`). El login la devuelve ya resuelta en
+  `LoginResponse.permissions`; el frontend nunca razona por rol, solo pregunta por permiso.
+- `AuthContexto` expone `can('products.delete')`. Se consume en tres lugares:
+  `<ProtectedRoute permission=…>` (rutas), el filtro de `navGroups` en `Sidebar.tsx`, y los botones
+  de cada página. `src/contextos/permisos.ts` solo declara el tipo
+  `Permission`, para autocompletado y para que un typo no compile.
+- **La UI es cosmética**: `permissions` vive en `localStorage` y se puede editar. Quien autoriza de
+  verdad es la policy del backend. El interceptor de respuesta de `apiCliente.ts` es la red de
+  seguridad: traduce el 403 a un mensaje y cierra sesión ante un 401.
 
 ## Stack
 - React + Vite + TypeScript

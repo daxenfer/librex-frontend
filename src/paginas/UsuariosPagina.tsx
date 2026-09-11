@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { Modal, Button } from 'react-bootstrap'
 import {
   useReactTable,
   getCoreRowModel,
@@ -9,86 +10,125 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table'
-import { BsPencilSquare, BsTrash } from 'react-icons/bs'
-import { customerService, type CustomerDto, type CreateCustomerDto, type UpdateCustomerDto } from '../servicios/clientesServicio'
-import { CustomerForm } from '../componentes/ClienteFormulario'
-import { exportToExcel } from '../utils/exportarExcel'
-import { ConfirmDeleteModal } from '../componentes/ConfirmarBorradoModal'
+import { BsPencilSquare, BsTrash, BsKey } from 'react-icons/bs'
+import { userService, type UserDto, type CreateUserDto, type UpdateUserDto, type PermissionMatrixDto } from '../servicios/usuariosServicio'
+import { UserForm } from '../componentes/UsuarioFormulario'
+import { ChangePasswordModal } from '../componentes/CambiarContrasenaModal'
+import { PermissionMatrix } from '../componentes/MatrizPermisos'
 import { useAuth } from '../contextos/AuthContexto'
+import { roleLabel } from '../contextos/permisos'
+import { errorMessage } from '../utils/errores'
 
-export function CustomersPage() {
-  const { can } = useAuth()
-  const [customers, setCustomers] = useState<CustomerDto[]>([])
-  const [selected, setSelected] = useState<CustomerDto | null>(null)
+// Solo llega aquí quien tiene users.manage, o sea el super administrador: la ruta y el ítem del
+// menú ya filtraron al resto.
+export function UsersPage() {
+  const { user: currentUser } = useAuth()
+  const [users, setUsers] = useState<UserDto[]>([])
+  const [matrix, setMatrix] = useState<PermissionMatrixDto | null>(null)
+  const [selected, setSelected] = useState<UserDto | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [toChangePassword, setToChangePassword] = useState<UserDto | null>(null)
+  const [toDeactivate, setToDeactivate] = useState<UserDto | null>(null)
+  const [deactivating, setDeactivating] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [toDelete, setToDelete] = useState<number | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
   const load = async () => {
     setLoading(true)
     setError(null)
-    try { setCustomers(await customerService.getAll()) }
-    catch { setError('No se pudieron cargar los clientes. Verificá la conexión con el servidor.') }
+    try { setUsers(await userService.getAll()) }
+    catch { setError('No se pudieron cargar los usuarios. Verificá la conexión con el servidor.') }
     finally { setLoading(false) }
   }
 
   useEffect(() => { load() }, [])
 
-  const downloadExcel = () => {
-    exportToExcel(
-      customers.map(c => ({
-        'Nombre': c.name,
-        'Contacto': c.contact ?? '',
-        'Dirección': c.address ?? '',
-        'C.P.': c.postalCode ?? '',
-        'Teléfono': c.phone ?? '',
-        'Ciudad': c.city ?? '',
-      })),
-      'clientes'
-    )
-  }
+  // Los roles asignables y lo que puede cada uno los dicta el backend: si mañana aparece un rol
+  // nuevo, esta pantalla lo ofrece en el selector y lo documenta en la matriz sin tocarla.
+  useEffect(() => { userService.getPermissionMatrix().then(setMatrix).catch(() => setMatrix(null)) }, [])
 
   const openNew = () => { setSelected(null); setShowModal(true) }
-  const openEdit = (c: CustomerDto) => { setSelected(c); setShowModal(true) }
+  const openEdit = (u: UserDto) => { setSelected(u); setShowModal(true) }
   const closeModal = () => { setShowModal(false); setSelected(null) }
 
-  const save = async (data: CreateCustomerDto | UpdateCustomerDto) => {
-    if (selected) await customerService.update(selected.id, data as UpdateCustomerDto)
-    else await customerService.create(data as CreateCustomerDto)
+  const save = async (data: CreateUserDto | UpdateUserDto) => {
+    if (selected) await userService.update(selected.id, data as UpdateUserDto)
+    else await userService.create(data as CreateUserDto)
     closeModal()
     await load()
   }
 
-  const remove = (id: number) => setToDelete(id)
+  const savePassword = async (newPassword: string) => {
+    if (!toChangePassword) return
+    await userService.changePassword(toChangePassword.id, { newPassword })
+    setToChangePassword(null)
+  }
 
-  const columns = useMemo<ColumnDef<CustomerDto>[]>(() => [
+  const deactivate = async () => {
+    if (!toDeactivate) return
+    setDeactivating(true)
+    setError(null)
+    try {
+      await userService.delete(toDeactivate.id)
+      setToDeactivate(null)
+      await load()
+    } catch (err) {
+      setError(errorMessage(err, 'No se pudo desactivar el usuario.'))
+      setToDeactivate(null)
+    } finally {
+      setDeactivating(false)
+    }
+  }
+
+  const columns = useMemo<ColumnDef<UserDto>[]>(() => [
     {
-      accessorKey: 'name',
+      accessorKey: 'username',
+      header: 'Usuario',
+    },
+    {
+      accessorKey: 'fullName',
       header: 'Nombre',
     },
     {
-      accessorKey: 'contact',
-      header: 'Contacto',
-      cell: info => (info.getValue() as string) || '—',
+      accessorKey: 'role',
+      header: 'Rol',
+      cell: info => roleLabel(info.getValue() as string),
+    },
+    {
+      accessorKey: 'createdAt',
+      header: 'Alta',
+      cell: info => new Date(info.getValue() as string).toLocaleDateString('es-MX'),
     },
     {
       id: 'acciones',
       header: 'Acciones',
       enableSorting: false,
-      cell: ({ row }) => (
-        <div style={{ display: 'flex', gap: '0.4rem' }}>
-          {can('customers.write') && <button style={btnEdit} title="Editar" onClick={() => openEdit(row.original)}><BsPencilSquare size={15} /></button>}
-          {can('customers.delete') && <button style={btnDelete} title="Eliminar" onClick={() => remove(row.original.id)}><BsTrash size={15} /></button>}
-        </div>
-      ),
+      cell: ({ row }) => {
+        // Desactivarse a sí mismo dejaría la sesión abierta contra un usuario que ya no puede
+        // entrar. El backend lo rechaza igual; aquí solo se evita ofrecerlo.
+        const isSelf = row.original.username === currentUser?.username
+        return (
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button style={btnEdit} title="Editar" onClick={() => openEdit(row.original)}><BsPencilSquare size={15} /></button>
+            <button style={btnKey} title="Cambiar contraseña" onClick={() => setToChangePassword(row.original)}><BsKey size={15} /></button>
+            <button
+              style={{ ...btnDelete, ...(isSelf ? btnDisabled : null) }}
+              title={isSelf ? 'No puedes desactivar tu propio usuario' : 'Desactivar'}
+              disabled={isSelf}
+              onClick={() => setToDeactivate(row.original)}
+            >
+              <BsTrash size={15} />
+            </button>
+          </div>
+        )
+      },
     },
-  ], [can])
+  ], [currentUser])
 
   const table = useReactTable({
-    data: customers,
+    data: users,
     columns,
     state: { sorting, globalFilter },
     onSortingChange: setSorting,
@@ -102,20 +142,20 @@ export function CustomersPage() {
 
   return (
     <div className="page-content" style={{ padding: '1.5rem 2rem' }}>
-      <h4 style={{ color: '#1a1a2e', marginBottom: '1.25rem', fontWeight: 700 }}>Clientes</h4>
+      <h4 style={{ color: '#1a1a2e', marginBottom: '1.25rem', fontWeight: 700 }}>Usuarios</h4>
 
       {error && <p style={{ color: '#c0392b', marginBottom: '1rem' }}>{error}</p>}
 
       <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+        {/* Toolbar */}
         <div className="toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem' }}>
           <input
             style={searchInput}
-            placeholder="Buscar clientes..."
+            placeholder="Buscar usuarios..."
             value={globalFilter}
             onChange={e => setGlobalFilter(e.target.value)}
           />
-          <button style={btnExcel} onClick={downloadExcel} disabled={loading || customers.length === 0}>Descargar Excel</button>
-          {can('customers.write') && <button style={btnPrimary} onClick={openNew}>+ Nuevo cliente</button>}
+          <button style={btnPrimary} onClick={openNew}>+ Nuevo usuario</button>
         </div>
 
         {loading ? <p>Cargando...</p> : (
@@ -146,7 +186,7 @@ export function CustomersPage() {
                   {table.getRowModel().rows.length === 0 ? (
                     <tr>
                       <td colSpan={columns.length} style={{ ...tdStyle, textAlign: 'center', color: '#888', padding: '2rem' }}>
-                        No hay clientes registrados.
+                        No hay usuarios registrados.
                       </td>
                     </tr>
                   ) : table.getRowModel().rows.map(row => (
@@ -162,6 +202,7 @@ export function CustomersPage() {
               </table>
             </div>
 
+            {/* Pagination */}
             <div className="pagination-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span style={{ fontSize: '0.875rem', color: '#555' }}>Filas por página:</span>
@@ -175,7 +216,7 @@ export function CustomersPage() {
               </div>
 
               <span style={{ fontSize: '0.875rem', color: '#555' }}>
-                Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()} — {table.getFilteredRowModel().rows.length} cliente(s)
+                Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()} — {table.getFilteredRowModel().rows.length} usuario(s)
               </span>
 
               <div style={{ display: 'flex', gap: '0.4rem' }}>
@@ -187,22 +228,45 @@ export function CustomersPage() {
         )}
       </div>
 
-      <CustomerForm
+      <PermissionMatrix matrix={matrix} />
+
+      <UserForm
         show={showModal}
-        customer={selected}
+        user={selected}
+        roles={matrix?.roles ?? []}
         onSave={save}
         onClose={closeModal}
       />
 
-      <ConfirmDeleteModal
-        show={toDelete !== null}
-        id={toDelete}
-        title="¿Eliminar este cliente?"
-        onImpact={customerService.getDeletionImpact}
-        onDelete={customerService.delete}
-        onClose={() => setToDelete(null)}
-        onDeleted={async () => { setToDelete(null); await load() }}
+      <ChangePasswordModal
+        show={toChangePassword !== null}
+        user={toChangePassword}
+        onSave={savePassword}
+        onClose={() => setToChangePassword(null)}
       />
+
+      {/* Un usuario no borra en cascada nada: se desactiva y deja de poder entrar. Por eso no usa
+          ConfirmarBorradoModal, que existe para explicar el impacto de una cascada. */}
+      <Modal show={toDeactivate !== null} onHide={() => setToDeactivate(null)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>¿Desactivar este usuario?</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="mb-2">
+            <strong>{toDeactivate?.fullName}</strong> ({toDeactivate?.username}) dejará de poder
+            iniciar sesión.
+          </p>
+          <p className="mb-0 text-muted small">
+            Los documentos que capturó no se modifican.
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setToDeactivate(null)} disabled={deactivating}>Cancelar</Button>
+          <Button variant="danger" onClick={deactivate} disabled={deactivating}>
+            {deactivating ? 'Desactivando…' : 'Desactivar'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   )
 }
@@ -213,6 +277,7 @@ const searchInput: React.CSSProperties = { padding: '0.5rem 0.75rem', border: '1
 const btnPrimary: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }
 const iconBtn = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.35rem 0.5rem', borderRadius: '3px', cursor: 'pointer', fontSize: '0.85rem' } as const
 const btnEdit: React.CSSProperties = { ...iconBtn, backgroundColor: '#2980b9', color: '#fff', border: 'none' }
+const btnKey: React.CSSProperties = { ...iconBtn, backgroundColor: '#7f8c8d', color: '#fff', border: 'none' }
 const btnDelete: React.CSSProperties = { ...iconBtn, backgroundColor: '#c0392b', color: '#fff', border: 'none' }
+const btnDisabled: React.CSSProperties = { opacity: 0.4, cursor: 'not-allowed' }
 const btnPage: React.CSSProperties = { padding: '0.35rem 0.75rem', backgroundColor: '#fff', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }
-const btnExcel: React.CSSProperties = { padding: '0.6rem 1.25rem', backgroundColor: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.95rem', whiteSpace: 'nowrap' }

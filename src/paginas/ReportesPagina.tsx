@@ -110,7 +110,7 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
     // así que las filas son heterogéneas a propósito.
     const rows: Record<string, unknown>[] = reports.flatMap(report => [
       ...report.customers.map(row => ({
-        'Proveedor': report.supplierName,
+        'Editorial': report.supplierName,
         'Cliente': row.customerName,
         'Ventas': row.totalSales,
         'Devoluciones': row.totalReturns,
@@ -118,7 +118,7 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
         'Saldo': row.balance,
       })),
       {
-        'Proveedor': report.supplierName,
+        'Editorial': report.supplierName,
         'Cliente': 'TOTALES',
         'Ventas': report.totals.totalSales,
         'Devoluciones': report.totals.totalReturns,
@@ -129,14 +129,14 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
     if (unlinkedReturns && unlinkedReturns.rows.length > 0) {
       rows.push(
         ...unlinkedReturns.rows.map(row => ({
-          'Proveedor': 'DEVOLUCIONES SIN REMISIÓN',
+          'Editorial': 'DEVOLUCIONES SIN REMISIÓN',
           'Cliente': row.customerName,
           'Notas': row.noteCount,
           'Motivo': row.reasonSummary,
           'Devoluciones': row.unlinkedAmount,
         })),
         {
-          'Proveedor': 'DEVOLUCIONES SIN REMISIÓN',
+          'Editorial': 'DEVOLUCIONES SIN REMISIÓN',
           'Cliente': 'TOTAL SIN REMISIÓN',
           'Devoluciones': unlinkedReturns.totalUnlinked,
         },
@@ -145,14 +145,14 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
     if (unallocated && unallocated.rows.length > 0) {
       rows.push(
         ...unallocated.rows.map(row => ({
-          'Proveedor': 'PAGOS SIN ASIGNAR',
+          'Editorial': 'PAGOS SIN ASIGNAR',
           'Cliente': row.customerName,
           'Pagos totales': row.totalPayments,
           'Aplicado': row.allocatedAmount,
           'Sin asignar': row.unallocatedAmount,
         })),
         {
-          'Proveedor': 'PAGOS SIN ASIGNAR',
+          'Editorial': 'PAGOS SIN ASIGNAR',
           'Cliente': 'TOTAL SIN ASIGNAR',
           'Sin asignar': unallocated.totalUnallocated,
         },
@@ -186,9 +186,9 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
   return (
     <>
       <div style={filterBar}>
-        <label style={labelStyle}>Proveedor</label>
+        <label style={labelStyle}>Editorial</label>
         <select style={selectStyle} value={selectedSupplierId} onChange={e => handleFilter(e.target.value)}>
-          <option value="">Todos los proveedores</option>
+          <option value="">Todas las editoriales</option>
           {suppliers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <button style={btnExcelReport} onClick={downloadExcel} disabled={loading || reports.length === 0}>Descargar Excel</button>
@@ -247,8 +247,8 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
                   </div>
                   <p style={{ fontSize: '0.75rem', color: '#aaa', margin: '0.5rem 1rem 0' }}>
                     {selectedSupplierId
-                      ? '† Los pagos están prorrateados según la participación de esta proveedor en cada remisión.'
-                      : '† Los pagos corresponden al total del cliente en todas las proveedores.'}
+                      ? '† Los pagos están prorrateados según la participación de esta editorial en cada remisión.'
+                      : '† Los pagos corresponden al total del cliente en todas las editoriales.'}
                   </p>
                 </div>
               )}
@@ -302,7 +302,7 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
                     </table>
                   </div>
                   <p style={{ fontSize: '0.75rem', color: '#aaa', margin: '0.5rem 1rem 0' }}>
-                    † Estas devoluciones no se restan del saldo de ningún proveedor: sin remisión no hay venta a la cual atribuirlas.
+                    † Estas devoluciones no se restan del saldo de ninguna editorial: sin remisión no hay venta a la cual atribuirlas.
                   </p>
                 </div>
               )}
@@ -356,7 +356,7 @@ function SaldosReport({ suppliers }: { suppliers: SupplierDto[] }) {
                     </table>
                   </div>
                   <p style={{ fontSize: '0.75rem', color: '#aaa', margin: '0.5rem 1rem 0' }}>
-                    † Estos montos no son atribuibles a ningún proveedor hasta que se apliquen a remisiones (en Cuentas por Cobrar o al editar el pago).
+                    † Estos montos no son atribuibles a ninguna editorial hasta que se apliquen a remisiones (en Cuentas por Cobrar o al editar el pago).
                   </p>
                 </div>
               )}
@@ -436,7 +436,7 @@ function CantidadesReport({ suppliers }: { suppliers: SupplierDto[] }) {
   const downloadExcel = () => {
     const rows = reports.flatMap(report => [
       ...report.rows.map(row => {
-        const obj: Record<string, unknown> = { 'Proveedor': report.supplierName, 'Cliente': row.customerName }
+        const obj: Record<string, unknown> = { 'Editorial': report.supplierName, 'Cliente': row.customerName }
         report.products.forEach((p, i) => {
           obj[`${p.productName} (vend.)`] = row.quantitiesSold[i] ?? 0
           obj[`${p.productName} (dev.)`] = row.quantitiesReturned[i] ?? 0
@@ -446,7 +446,7 @@ function CantidadesReport({ suppliers }: { suppliers: SupplierDto[] }) {
         return obj
       }),
       (() => {
-        const obj: Record<string, unknown> = { 'Proveedor': report.supplierName, 'Cliente': 'TOTALES' }
+        const obj: Record<string, unknown> = { 'Editorial': report.supplierName, 'Cliente': 'TOTALES' }
         report.products.forEach((p, i) => {
           obj[`${p.productName} (vend.)`] = report.productTotalsSold[i] ?? 0
           obj[`${p.productName} (dev.)`] = report.productTotalsReturned[i] ?? 0
@@ -484,9 +484,9 @@ function CantidadesReport({ suppliers }: { suppliers: SupplierDto[] }) {
   return (
     <>
       <div style={filterBar}>
-        <label style={labelStyle}>Proveedor</label>
+        <label style={labelStyle}>Editorial</label>
         <select style={selectStyle} value={selectedSupplierId} onChange={e => handleFilter(e.target.value)}>
-          <option value="">Todos los proveedores</option>
+          <option value="">Todas las editoriales</option>
           {suppliers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <button style={btnExcelReport} onClick={downloadExcel} disabled={loading || reports.length === 0}>Descargar Excel</button>
